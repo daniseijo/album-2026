@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { IncomingShareHandler } from "@/components/incoming-share-handler";
+import { HydrationGate } from "@/components/hydration-gate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,10 +33,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // El header de la app es negro siempre (token --brand) en ambos
-  // modos para mantener la identidad FIFA, así que la barra de estado
-  // lo refleja sin saltos visuales.
-  themeColor: "#0a0a0a",
+  // El header de la app es carbón cálido siempre (token --primary)
+  // en ambos modos para mantener la identidad FIFA, así que la barra
+  // de estado lo refleja sin saltos visuales.
+  themeColor: "#2a2520",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -50,12 +51,12 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-background text-foreground flex flex-col">
+      <body className="min-h-dvh bg-background text-foreground flex flex-col">
         <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-          {children}
+          <HydrationGate>{children}</HydrationGate>
         </main>
         <BottomNav />
         <Toaster position="top-center" richColors />

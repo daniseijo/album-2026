@@ -11,7 +11,7 @@ export function PageHeader({
 }) {
   return (
     <header
-      className="sticky top-0 z-30 border-b border-brand-accent/30 bg-brand text-brand-foreground"
+      className="sticky top-0 z-30 border-b border-warning/30 bg-primary text-primary-foreground"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="mx-auto flex max-w-2xl items-start justify-between gap-3 px-4 py-3.5">
@@ -20,7 +20,7 @@ export function PageHeader({
             {title}
           </h1>
           {subtitle ? (
-            <p className="truncate text-xs text-brand-foreground/60">
+            <p className="truncate text-xs text-primary-foreground/60">
               {subtitle}
             </p>
           ) : null}

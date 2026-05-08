@@ -66,15 +66,15 @@ export default function HomePage() {
   return (
     <div>
       <header
-        className="sticky top-0 z-30 border-b border-brand-accent/30 bg-brand text-brand-foreground"
+        className="sticky top-0 z-30 border-b border-warning/30 bg-primary text-primary-foreground"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5">
           <div className="min-w-0">
             <h1 className="text-[20px] font-semibold leading-tight tracking-tight">
               Álbum Mundial{" "}
-              <span className="text-brand-accent">2026</span>{" "}
-              <span className="font-normal text-brand-foreground/60">
+              <span className="text-warning">2026</span>{" "}
+              <span className="font-normal text-primary-foreground/60">
                 Panini
               </span>
             </h1>
@@ -82,7 +82,7 @@ export default function HomePage() {
           <Link
             href="/intercambio"
             prefetch
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-brand-foreground/30 bg-brand-foreground/5 px-3 text-xs font-medium text-brand-foreground hover:bg-brand-foreground/15 transition-colors"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-primary-foreground/30 bg-primary-foreground/5 px-3 text-xs font-medium text-primary-foreground hover:bg-primary-foreground/15 transition-colors"
           >
             <ArrowLeftRight className="h-3.5 w-3.5" />
             Intercambio
@@ -136,7 +136,7 @@ export default function HomePage() {
             className={cn(
               "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition-colors",
               sort === "album"
-                ? "border-brand bg-brand text-brand-foreground"
+                ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card hover:bg-accent",
             )}
             aria-label={
@@ -244,7 +244,7 @@ function GroupChip({
       className={cn(
         "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
         active
-          ? "border-brand bg-brand text-brand-foreground"
+          ? "border-primary bg-primary text-primary-foreground"
           : "border-border bg-card hover:bg-accent",
       )}
     >

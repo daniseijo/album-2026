@@ -44,19 +44,19 @@ export function TeamCard({
           touchAction: "manipulation",
           WebkitTapHighlightColor: "transparent",
         }}
-        className="relative flex w-full cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border border-brand-accent/40 bg-brand px-5 py-4 text-left text-brand-foreground transition-all active:scale-[0.99]"
+        className="relative flex w-full cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border border-warning/40 bg-primary px-5 py-4 text-left text-primary-foreground transition-all active:scale-[0.99]"
       >
         <span className="text-4xl leading-none">{section.flag}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black tracking-tight text-brand-accent">
+            <span className="text-2xl font-black tracking-tight text-warning">
               26
             </span>
-            <span className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-foreground/70">
+            <span className="text-sm font-semibold uppercase tracking-[0.18em] text-primary-foreground/70">
               FIFA World Cup
             </span>
           </div>
-          <div className="text-[11px] tabular-nums text-brand-foreground/60">
+          <div className="text-[11px] tabular-nums text-primary-foreground/60">
             {owned}/{total} cromos
             {completed ? " · completo" : ""}
           </div>
@@ -66,9 +66,9 @@ export function TeamCard({
                 key={i}
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  d === "missing" && "bg-brand-foreground/15",
+                  d === "missing" && "bg-primary-foreground/15",
                   d === "owned" && "bg-success",
-                  d === "dupe" && "bg-brand-accent",
+                  d === "dupe" && "bg-warning",
                 )}
               />
             ))}
@@ -95,7 +95,7 @@ export function TeamCard({
         started &&
           "border-warning-strong/70 ring-1 ring-warning-strong/20 bg-warning-soft/20",
         !completed && !started && "border-border hover:bg-accent/40",
-        active && "ring-2 ring-brand-accent/40",
+        active && "ring-2 ring-warning/40",
       )}
     >
       {completed ? (

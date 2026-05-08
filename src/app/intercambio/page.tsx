@@ -807,7 +807,7 @@ function DropZone({
     <Card
       className={cn(
         "border-dashed transition-colors",
-        over && "border-foreground/50 bg-accent/40",
+        over && "border-primary/50 bg-accent/40",
       )}
       onDragEnter={(e) => {
         e.preventDefault();

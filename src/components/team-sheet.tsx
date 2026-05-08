@@ -205,7 +205,7 @@ function FilterPicker({
           className={cn(
             "rounded-full border px-3 py-2 text-sm transition-colors",
             filter === it.id
-              ? "border-foreground bg-foreground text-background"
+              ? "border-primary bg-primary text-primary-foreground"
               : "border-border bg-background hover:bg-accent",
           )}
         >
