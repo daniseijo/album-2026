@@ -7,7 +7,14 @@ import { GROUPS, SECTIONS, Section } from "@/lib/album";
 import { summarize, useCollection } from "@/lib/collection";
 import { TeamCard } from "@/components/team-card";
 import { TeamSheet } from "@/components/team-sheet";
-import { ArrowDownAZ, ArrowLeftRight, BookOpen, Search } from "lucide-react";
+import { AlbumCompleteCelebration } from "@/components/album-complete-celebration";
+import {
+  ArrowDownAZ,
+  ArrowLeftRight,
+  BookOpen,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type GroupFilter = "all" | "fwc" | (typeof GROUPS)[number];
@@ -22,8 +29,9 @@ function normalize(s: string) {
 }
 
 export default function HomePage() {
-  const { counts } = useCollection();
+  const { counts, ownerName } = useCollection();
   const totals = summarize(counts);
+  const complete = totals.missing === 0;
 
   const [group, setGroup] = useState<GroupFilter>("all");
   const [query, setQuery] = useState("");
@@ -91,11 +99,13 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
+        {complete ? <CompleteBanner ownerName={ownerName} /> : null}
         <StatsRow
           owned={totals.owned}
           missing={totals.missing}
           dupes={totals.dupes}
           percent={totals.percent}
+          complete={complete}
         />
 
         <div className="flex flex-wrap gap-1.5">
@@ -192,6 +202,44 @@ export default function HomePage() {
           if (!o) setTimeout(() => setOpenSection(null), 200);
         }}
       />
+
+      <AlbumCompleteCelebration complete={complete} ownerName={ownerName} />
+    </div>
+  );
+}
+
+function CompleteBanner({ ownerName }: { ownerName?: string }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-warning-soft via-warning to-warning-strong px-4 py-3.5 shadow-lg shadow-warning/30 ring-1 ring-warning-strong/40">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 -inset-x-1/3 bg-[linear-gradient(110deg,transparent_38%,rgba(255,255,255,0.55)_50%,transparent_62%)]"
+        style={{ animation: "champion-shimmer 3.6s ease-in-out infinite" }}
+      />
+      <div className="relative flex items-center gap-3.5">
+        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-background p-2 shadow-md ring-2 ring-primary/15">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/fwc26-emblem.svg"
+            alt=""
+            aria-hidden
+            className="h-full w-full object-contain"
+            draggable={false}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/70">
+            FIFA World Cup 2026 · Campeón
+          </div>
+          <div className="font-heading text-[19px] font-bold leading-tight tracking-tight text-primary">
+            ¡Álbum completado!
+          </div>
+          <div className="mt-0.5 text-xs font-medium text-primary/80">
+            {ownerName ? `${ownerName} · ` : ""}980 cromos pegados, ni uno menos
+          </div>
+        </div>
+        <Sparkles className="h-5 w-5 shrink-0 text-primary/70" />
+      </div>
     </div>
   );
 }
@@ -201,14 +249,23 @@ function StatsRow({
   missing,
   dupes,
   percent,
+  complete,
 }: {
   owned: number;
   missing: number;
   dupes: number;
   percent: number;
+  complete: boolean;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-2 rounded-2xl bg-cream p-2.5">
+    <div
+      className={cn(
+        "grid grid-cols-4 gap-2 rounded-2xl p-2.5 transition-colors",
+        complete
+          ? "bg-success-soft ring-1 ring-success/30"
+          : "bg-cream",
+      )}
+    >
       <Stat label="Pegados" value={owned} />
       <Stat label="Faltan" value={missing} />
       <Stat label="Repetidos" value={dupes} />
