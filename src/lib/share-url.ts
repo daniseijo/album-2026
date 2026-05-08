@@ -128,4 +128,43 @@ export function readSharePayloadFromHash(hash: string): string | null {
   return d && d.length > 0 ? d : null;
 }
 
+/**
+ * Acepta texto del portapapeles en cualquier formato razonable:
+ *   - URL completa con `#d=PAYLOAD`
+ *   - `#d=PAYLOAD` literal
+ *   - `d=PAYLOAD` literal
+ *   - El payload base64url pelado
+ * Devuelve el payload o null si no se reconoce.
+ */
+export function extractSharePayload(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    const fromHash = readSharePayloadFromHash(url.hash);
+    if (fromHash) return fromHash;
+    const fromQuery = url.searchParams.get("d");
+    if (fromQuery && fromQuery.length > 0) return fromQuery;
+  } catch {}
+  if (trimmed.startsWith("#") || trimmed.startsWith("?")) {
+    const params = new URLSearchParams(trimmed.slice(1));
+    const d = params.get("d");
+    if (d && d.length > 0) return d;
+  }
+  if (trimmed.startsWith("d=")) {
+    const params = new URLSearchParams(trimmed);
+    const d = params.get("d");
+    if (d && d.length > 0) return d;
+  }
+  if (/^[A-Za-z0-9_-]+$/.test(trimmed)) return trimmed;
+  return null;
+}
+
+export function isStandalonePwa(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.matchMedia("(display-mode: standalone)").matches) return true;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return nav.standalone === true;
+}
+
 export const SESSION_INCOMING_FRIEND_KEY = "album-2026:incoming-friend";

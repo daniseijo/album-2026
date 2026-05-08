@@ -11,6 +11,7 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  ClipboardPaste,
   Copy,
   Link2,
   Send,
@@ -30,7 +31,11 @@ import {
   type TradeMatch,
 } from "@/lib/collection";
 import { STICKERS, getStickerByCode } from "@/lib/album";
-import { SESSION_INCOMING_FRIEND_KEY } from "@/lib/share-url";
+import {
+  SESSION_INCOMING_FRIEND_KEY,
+  decodeSharePayload,
+  extractSharePayload,
+} from "@/lib/share-url";
 import { ShareLinkDialog } from "@/components/share-link-dialog";
 import { cn } from "@/lib/utils";
 
@@ -124,6 +129,44 @@ export default function IntercambioPage() {
       );
     } catch (e) {
       toast.error("Archivo inválido", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
+  };
+
+  const handlePasteLink = async () => {
+    let text: string;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      toast.error("No se pudo leer el portapapeles", {
+        description: "Concédele permiso al navegador o pega el enlace tú mismo.",
+      });
+      return;
+    }
+    const payload = extractSharePayload(text);
+    if (!payload) {
+      toast.error("No encontré un enlace de colección", {
+        description: "Copia primero el código desde el navegador o el QR.",
+      });
+      return;
+    }
+    try {
+      const { counts: c, ownerName: name } = await decodeSharePayload(payload);
+      const data: ExportPayload = {
+        app: "album-2026",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        ownerName: name,
+        counts: c,
+      };
+      setFriend(data);
+      setTab("friend");
+      toast.success(
+        `Cargada colección de ${name ?? "tu amigo"}`,
+      );
+    } catch (e) {
+      toast.error("Enlace inválido", {
         description: e instanceof Error ? e.message : undefined,
       });
     }
@@ -281,6 +324,7 @@ export default function IntercambioPage() {
               <DropZone
                 onFile={handleImportFile}
                 onClick={() => fileRef.current?.click()}
+                onPasteLink={handlePasteLink}
               />
             ) : (
               <>
@@ -752,9 +796,11 @@ function CodeList({
 function DropZone({
   onFile,
   onClick,
+  onPasteLink,
 }: {
   onFile: (file: File) => void;
   onClick: () => void;
+  onPasteLink: () => void;
 }) {
   const [over, setOver] = useState(false);
   return (
@@ -786,13 +832,19 @@ function DropZone({
             Carga la colección de tu amigo
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Arrastra el archivo .json que te ha pasado o tócalo para
-            seleccionarlo. La comparativa se calcula al instante.
+            Pega el enlace que te ha enviado, arrastra su <code>.json</code>{" "}
+            o tócalo para seleccionarlo. La comparativa se calcula al
+            instante.
           </p>
         </div>
-        <Button onClick={onClick} variant="outline">
-          Seleccionar archivo
-        </Button>
+        <div className="grid w-full max-w-xs grid-cols-2 gap-2">
+          <Button onClick={onPasteLink} variant="default" size="default">
+            <ClipboardPaste className="mr-2 h-4 w-4" /> Pegar enlace
+          </Button>
+          <Button onClick={onClick} variant="outline" size="default">
+            <FileUp className="mr-2 h-4 w-4" /> Archivo
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

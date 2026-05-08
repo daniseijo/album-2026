@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -14,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   decodeSharePayload,
+  isStandalonePwa,
   readSharePayloadFromHash,
   SESSION_INCOMING_FRIEND_KEY,
 } from "@/lib/share-url";
@@ -24,23 +26,35 @@ import {
   type ExportPayload,
 } from "@/lib/collection";
 
-type Incoming = { counts: Counts; ownerName?: string } | null;
+type Incoming = {
+  payload: string;
+  shareUrl: string;
+  counts: Counts;
+  ownerName?: string;
+} | null;
 
 export function IncomingShareHandler() {
   const [incoming, setIncoming] = useState<Incoming>(null);
+  const [standalone, setStandalone] = useState(false);
   const { importCounts, setOwnerName } = useCollection();
   const router = useRouter();
 
   useEffect(() => {
+    Promise.resolve().then(() => setStandalone(isStandalonePwa()));
+
     const payload = readSharePayloadFromHash(window.location.hash);
     if (!payload) return;
 
-    // Limpiar el hash para que un refresh no vuelva a disparar el diálogo.
+    // Reconstruimos la URL canónica para el botón "Copiar código" antes
+    // de limpiar el hash, así no perdemos el original.
+    const shareUrl = `${window.location.origin}/#d=${payload}`;
     const cleanUrl = window.location.pathname + window.location.search;
     window.history.replaceState(null, "", cleanUrl);
 
     decodeSharePayload(payload)
-      .then(setIncoming)
+      .then(({ counts, ownerName }) =>
+        setIncoming({ payload, shareUrl, counts, ownerName }),
+      )
       .catch((e: unknown) => {
         toast.error("Enlace inválido", {
           description: e instanceof Error ? e.message : undefined,
@@ -49,6 +63,18 @@ export function IncomingShareHandler() {
   }, []);
 
   const close = () => setIncoming(null);
+
+  const handleCopyCode = async () => {
+    if (!incoming) return;
+    try {
+      await navigator.clipboard.writeText(incoming.shareUrl);
+      toast.success("Código copiado", {
+        description: "Pégalo en la app instalada (Intercambio → Con un amigo)",
+      });
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  };
 
   const handleViewAsFriend = () => {
     if (!incoming) return;
@@ -94,6 +120,27 @@ export function IncomingShareHandler() {
             {totals.percent}%
           </DialogDescription>
         </DialogHeader>
+
+        {!standalone ? (
+          <div className="rounded-lg border bg-accent/40 p-3 text-xs">
+            <p className="font-medium">¿Tienes la app instalada en este móvil?</p>
+            <p className="mt-1 text-muted-foreground">
+              Los enlaces no abren dentro de la PWA en iOS. Copia el código,
+              abre la app desde tu pantalla de inicio y pulsa{" "}
+              <strong>Intercambio → Con un amigo → Pegar enlace</strong>. Tu
+              colección viaja contigo.
+            </p>
+            <Button
+              onClick={handleCopyCode}
+              size="sm"
+              variant="outline"
+              className="mt-2 w-full"
+            >
+              <Copy className="mr-2 h-3.5 w-3.5" /> Copiar código
+            </Button>
+          </div>
+        ) : null}
+
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button onClick={handleViewAsFriend} className="w-full">
             Ver para intercambiar
