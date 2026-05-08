@@ -14,14 +14,13 @@ export type Counts = Record<string, number>;
 
 export type ExportPayload = {
   app: "album-2026";
-  version: 2;
+  version: 1;
   exportedAt: string;
   ownerName?: string;
   counts: Counts;
 };
 
-const STORAGE_KEY = "album-2026:counts:v2";
-const LEGACY_STORAGE_KEY = "album-2026:counts:v1";
+const STORAGE_KEY = "album-2026:counts:v1";
 const NAME_KEY = "album-2026:owner-name:v1";
 
 const EMPTY_COUNTS: Counts = Object.freeze({}) as Counts;
@@ -30,51 +29,22 @@ const listeners = new Set<() => void>();
 let memoryCounts: Counts | null = null;
 let memoryName: string | null = null;
 
-function migrateLegacy(raw: string): Counts {
-  // Formato v1: claves numéricas (global sticker number).
-  // Convertir a claves por código usando el mapa por número.
+function readFromStorage(): Counts {
+  if (typeof window === "undefined") return {};
   try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return {};
     const out: Counts = {};
     for (const [k, v] of Object.entries(parsed)) {
-      const n = Number(k);
       const c = Number(v);
-      if (!Number.isFinite(n) || !Number.isFinite(c) || c <= 0) continue;
-      const s = STICKER_BY_NUMBER.get(n);
-      if (s) out[s.code] = c;
+      if (typeof k === "string" && Number.isFinite(c) && c > 0) out[k] = c;
     }
     return out;
   } catch {
     return {};
   }
-}
-
-function readFromStorage(): Counts {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") {
-        const out: Counts = {};
-        for (const [k, v] of Object.entries(parsed)) {
-          const c = Number(v);
-          if (typeof k === "string" && Number.isFinite(c) && c > 0) out[k] = c;
-        }
-        return out;
-      }
-    }
-    // Migración desde v1.
-    const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (legacyRaw) {
-      const migrated = migrateLegacy(legacyRaw);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-      return migrated;
-    }
-  } catch {}
-  return {};
 }
 
 function readNameFromStorage(): string {
@@ -170,7 +140,7 @@ export function useCollection() {
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY || e.key === LEGACY_STORAGE_KEY) {
+      if (e.key === STORAGE_KEY) {
         memoryCounts = readFromStorage();
         emit();
       }
@@ -264,7 +234,7 @@ export function summarizeSection(
 export function buildExport(counts: Counts, ownerName?: string): ExportPayload {
   return {
     app: "album-2026",
-    version: 2,
+    version: 1,
     exportedAt: new Date().toISOString(),
     ownerName: ownerName?.trim() || undefined,
     counts,
@@ -278,26 +248,6 @@ export function parseImport(text: string): ExportPayload {
     throw new Error("No es un archivo del álbum 2026");
   if (typeof data.counts !== "object" || data.counts === null)
     throw new Error("Archivo sin colección");
-
-  // v1 (numérico) → v2 (códigos)
-  if (data.version === 1) {
-    const migrated: Counts = {};
-    for (const [k, v] of Object.entries(data.counts)) {
-      const n = Number(k);
-      const c = Number(v);
-      if (!Number.isFinite(n) || !Number.isFinite(c) || c <= 0) continue;
-      const s = STICKER_BY_NUMBER.get(n);
-      if (s) migrated[s.code] = c;
-    }
-    return {
-      app: "album-2026",
-      version: 2,
-      exportedAt: data.exportedAt ?? new Date().toISOString(),
-      ownerName: data.ownerName,
-      counts: migrated,
-    };
-  }
-
   return data as ExportPayload;
 }
 

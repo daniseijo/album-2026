@@ -39,14 +39,14 @@ export default function HomePage() {
       }
       return true;
     });
-    // Mover la sección FWC al final (con col-span-full encaja como cierre
-    // y deja al resto en parejas por grupo).
+    // FWC siempre al principio (full-width, hace de cabecera).
+    // El resto de equipos a continuación, en orden del álbum o A-Z.
     const fwc = filtered.find((s) => s.kind === "fwc");
     const teams = filtered.filter((s) => s.kind !== "fwc");
     if (sort === "alpha") {
       teams.sort((a, b) => a.name.localeCompare(b.name, "es"));
     }
-    return fwc ? [...teams, fwc] : teams;
+    return fwc ? [fwc, ...teams] : teams;
   }, [group, query, sort]);
 
   const openTeam = (s: Section) => {
