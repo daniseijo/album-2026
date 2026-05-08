@@ -11,7 +11,7 @@ import { TeamSheet } from "@/components/team-sheet";
 import { ArrowLeftRight, Search, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type GroupFilter = "all" | "specials" | (typeof GROUPS)[number];
+type GroupFilter = "all" | "fwc" | (typeof GROUPS)[number];
 
 export default function HomePage() {
   const { counts } = useCollection();
@@ -26,9 +26,9 @@ export default function HomePage() {
     const q = query.trim().toLowerCase();
     return SECTIONS.filter((s) => {
       if (group === "all") {
-        // mostrar todo (incluye specials)
-      } else if (group === "specials") {
-        if (s.kind !== "intro" && s.kind !== "history") return false;
+        // mostrar todo
+      } else if (group === "fwc") {
+        if (s.kind !== "fwc") return false;
       } else {
         if (s.kind !== "team" || s.group !== group) return false;
       }
@@ -101,9 +101,9 @@ export default function HomePage() {
             onClick={() => setGroup("all")}
           />
           <GroupChip
-            label="Especiales"
-            active={group === "specials"}
-            onClick={() => setGroup("specials")}
+            label="🏆 FWC"
+            active={group === "fwc"}
+            onClick={() => setGroup("fwc")}
           />
           {GROUPS.map((g) => (
             <GroupChip

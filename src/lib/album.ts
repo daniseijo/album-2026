@@ -1,9 +1,4 @@
-export type StickerKind =
-  | "intro"
-  | "history"
-  | "badge"
-  | "team_photo"
-  | "player";
+export type StickerKind = "fwc" | "badge" | "team_photo" | "player";
 
 export type Sticker = {
   number: number;
@@ -21,7 +16,7 @@ export type Section = {
   name: string;
   flag?: string;
   range: [number, number];
-  kind: "intro" | "history" | "team";
+  kind: "fwc" | "team";
   group?: string;
 };
 
@@ -90,61 +85,38 @@ export const GROUPS: GroupId[] = [
   "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
 ];
 
-const INTRO_STICKERS = [
-  "Logo Panini",
-  "Emblema oficial",
-  "Emblema oficial (variante)",
-  "Mascotas oficiales",
-  "Lema oficial",
-  "Balón oficial",
-  "Canadá (anfitrión)",
-  "México (anfitrión)",
-  "Estados Unidos (anfitrión)",
-];
-
-const HISTORY_LABELS = Array.from({ length: 11 }, (_, i) => `Historia FIFA ${i + 1}`);
+const FWC_SIZE = 20;
+const FWC_TROPHY = "🏆";
 
 function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
   const stickers: Sticker[] = [];
   const sections: Section[] = [];
 
-  const introStart = 1;
-  INTRO_STICKERS.forEach((label, i) => {
+  // FWC section: sticker #1 is the cover ("00") and #2..#20 are FWC 1..19.
+  const fwcStart = 1;
+  for (let i = 0; i < FWC_SIZE; i++) {
     stickers.push({
-      number: introStart + i,
-      sectionId: "intro",
-      sectionName: "Introducción",
-      kind: "intro",
-      label,
+      number: fwcStart + i,
+      sectionId: "FWC",
+      sectionName: "FIFA World Cup",
+      kind: "fwc",
+      label: i === 0 ? "Portada" : `FWC ${i}`,
+      teamLocalIndex: i,
     });
-  });
+  }
   sections.push({
-    id: "intro",
-    name: "Introducción",
-    range: [introStart, introStart + INTRO_STICKERS.length - 1],
-    kind: "intro",
+    id: "FWC",
+    name: "FIFA World Cup",
+    flag: FWC_TROPHY,
+    range: [fwcStart, fwcStart + FWC_SIZE - 1],
+    kind: "fwc",
   });
 
-  const historyStart = introStart + INTRO_STICKERS.length;
-  HISTORY_LABELS.forEach((label, i) => {
-    stickers.push({
-      number: historyStart + i,
-      sectionId: "history",
-      sectionName: "Historia FIFA",
-      kind: "history",
-      label,
-    });
-  });
-  sections.push({
-    id: "history",
-    name: "Historia FIFA",
-    range: [historyStart, historyStart + HISTORY_LABELS.length - 1],
-    kind: "history",
-  });
-
-  let cursor = historyStart + HISTORY_LABELS.length;
+  let cursor = fwcStart + FWC_SIZE;
   for (const team of TEAMS) {
     const start = cursor;
+
+    // 1: badge
     stickers.push({
       number: cursor,
       sectionId: team.code,
@@ -156,6 +128,23 @@ function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
       teamLocalIndex: 1,
     });
     cursor += 1;
+
+    // 2..12: first 11 players
+    for (let i = 0; i < 11; i++) {
+      stickers.push({
+        number: cursor,
+        sectionId: team.code,
+        sectionName: team.name,
+        kind: "player",
+        label: `Jugador ${i + 1}`,
+        teamCode: team.code,
+        flag: team.flag,
+        teamLocalIndex: 2 + i,
+      });
+      cursor += 1;
+    }
+
+    // 13: team photo
     stickers.push({
       number: cursor,
       sectionId: team.code,
@@ -164,22 +153,25 @@ function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
       label: "Foto de equipo",
       teamCode: team.code,
       flag: team.flag,
-      teamLocalIndex: 2,
+      teamLocalIndex: 13,
     });
     cursor += 1;
-    for (let p = 1; p <= 18; p++) {
+
+    // 14..20: remaining 7 players
+    for (let i = 0; i < 7; i++) {
       stickers.push({
         number: cursor,
         sectionId: team.code,
         sectionName: team.name,
         kind: "player",
-        label: `Jugador ${p}`,
+        label: `Jugador ${12 + i}`,
         teamCode: team.code,
         flag: team.flag,
-        teamLocalIndex: 2 + p,
+        teamLocalIndex: 14 + i,
       });
       cursor += 1;
     }
+
     sections.push({
       id: team.code,
       name: team.name,
@@ -208,9 +200,11 @@ export function getSticker(n: number): Sticker | undefined {
 }
 
 export function formatStickerCode(s: Sticker): string {
-  if (s.kind === "intro") return `INTRO ${s.number}`;
-  if (s.kind === "history") return `HIST ${s.number - 9}`;
-  if (s.teamCode && s.teamLocalIndex)
+  if (s.kind === "fwc") {
+    if (s.number === 1) return "00";
+    return `FWC ${s.number - 1}`;
+  }
+  if (s.teamCode && s.teamLocalIndex !== undefined)
     return `${s.teamCode} ${s.teamLocalIndex}`;
   return `#${s.number}`;
 }

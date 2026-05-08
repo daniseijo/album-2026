@@ -30,16 +30,20 @@ export function TeamCard({
     }
   }
 
+  const completed = owned === total;
+  const started = owned > 0 && !completed;
+
   return (
     <button
       type="button"
       onClick={onClick}
       style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
       className={cn(
-        "relative flex w-full cursor-pointer flex-col items-start gap-2 overflow-hidden rounded-2xl border bg-card px-3.5 py-3 text-left transition-all active:scale-[0.99]",
-        active
-          ? "border-success/60 ring-2 ring-success/20"
-          : "border-border hover:bg-accent/40",
+        "relative flex w-full cursor-pointer flex-col items-start gap-2 overflow-hidden rounded-2xl border px-3.5 py-3 text-left transition-all active:scale-[0.99]",
+        completed && "border-success/50 bg-success-soft/60",
+        started && "border-warning/40 bg-warning-soft/50",
+        !completed && !started && "border-border bg-card hover:bg-accent/40",
+        active && "border-success/60 ring-2 ring-success/20",
       )}
     >
       {active ? (

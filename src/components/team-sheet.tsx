@@ -8,7 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Section, STICKERS, Sticker } from "@/lib/album";
+import { Section, STICKERS, Sticker, formatStickerCode } from "@/lib/album";
 import { useCollection } from "@/lib/collection";
 import { cn } from "@/lib/utils";
 import { Eraser, Plus } from "lucide-react";
@@ -231,13 +231,7 @@ function StickerTile({
   const dupes = Math.max(0, count - 1);
   const repe = dupes > 0;
 
-  const numberLabel = (() => {
-    if (sticker.kind === "badge") return "ESC";
-    if (sticker.kind === "team_photo") return "FOTO";
-    if (sticker.teamLocalIndex)
-      return String(sticker.teamLocalIndex).padStart(2, "0");
-    return String(sticker.number).padStart(2, "0");
-  })();
+  const code = formatStickerCode(sticker);
 
   return (
     <button
@@ -254,11 +248,11 @@ function StickerTile({
     >
       <span
         className={cn(
-          "text-sm font-bold tabular-nums leading-none",
+          "text-[11px] font-bold tabular-nums leading-tight",
           !owned && "text-muted-foreground",
         )}
       >
-        {numberLabel}
+        {code}
       </span>
       {repe ? (
         <span className="absolute bottom-0.5 right-0.5 rounded bg-warning-strong px-1 text-[9px] font-semibold leading-tight text-white">
