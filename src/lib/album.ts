@@ -133,6 +133,7 @@ function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
       sectionName: "FIFA World Cup",
       kind: "fwc",
       label: i === 0 ? "Portada" : `FWC ${i}`,
+      flag: FWC_TROPHY,
       teamLocalIndex: i,
     });
   }

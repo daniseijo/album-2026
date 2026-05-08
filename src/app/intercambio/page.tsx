@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
-  ArrowDown,
   ArrowUp,
   Check,
   Copy,
@@ -203,7 +202,8 @@ export default function IntercambioPage() {
             </p>
 
             <CodeList
-              title="Me sobran"
+              title="Mis repes para intercambiar"
+              subtitle="Estos son los que vas a compartir. Las faltas no se incluyen porque sin saber qué tiene tu amigo no son accionables; el archivo JSON sí lleva tu colección entera."
               icon={<ArrowUp className="h-4 w-4" />}
               tone="emerald"
               items={dupeCodes.map((d) => ({
@@ -211,14 +211,6 @@ export default function IntercambioPage() {
                 badge: d.c - 1 > 1 ? `×${d.c - 1}` : undefined,
               }))}
               empty="Aún no tienes repes"
-            />
-            <CodeList
-              title="Me faltan"
-              icon={<ArrowDown className="h-4 w-4" />}
-              tone="amber"
-              items={missingCodes.map((code) => ({ code }))}
-              empty="¡Álbum completo!"
-              limit={120}
             />
           </TabsContent>
 
