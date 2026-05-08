@@ -4,6 +4,7 @@ import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { IncomingShareHandler } from "@/components/incoming-share-handler";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,6 +57,7 @@ export default function RootLayout({
         <BottomNav />
         <Toaster position="top-center" richColors />
         <ServiceWorkerRegister />
+        <IncomingShareHandler />
       </body>
     </html>
   );

@@ -12,6 +12,7 @@ import {
   ArrowUp,
   Check,
   Copy,
+  Link2,
   Send,
   FileUp,
   X,
@@ -29,12 +30,15 @@ import {
   type TradeMatch,
 } from "@/lib/collection";
 import { STICKERS, getStickerByCode } from "@/lib/album";
+import { SESSION_INCOMING_FRIEND_KEY } from "@/lib/share-url";
+import { ShareLinkDialog } from "@/components/share-link-dialog";
 import { cn } from "@/lib/utils";
 
 export default function IntercambioPage() {
   const { counts, ownerName, setOwnerName } = useCollection();
 
   const [friend, setFriend] = useState<ExportPayload | null>(null);
+  const [shareLinkOpen, setShareLinkOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const dupeCodes = useMemo(
@@ -144,6 +148,24 @@ export default function IntercambioPage() {
     });
   }, []);
 
+  // Si llegamos a /intercambio desde un enlace de colección compartida,
+  // el handler global guardó la colección del amigo en sessionStorage.
+  // La consumimos al montar y mostramos directamente la comparativa.
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      try {
+        const raw = sessionStorage.getItem(SESSION_INCOMING_FRIEND_KEY);
+        if (!raw) return;
+        sessionStorage.removeItem(SESSION_INCOMING_FRIEND_KEY);
+        const data = JSON.parse(raw) as ExportPayload;
+        setFriend(data);
+        toast.success(
+          `Cargada colección de ${data.ownerName ?? "tu amigo"}`,
+        );
+      } catch {}
+    });
+  }, []);
+
   return (
     <div>
       <PageHeader
@@ -182,24 +204,35 @@ export default function IntercambioPage() {
 
           <TabsContent value="mine" className="mt-4 space-y-3">
             <Button
-              onClick={handleCopyWhatsapp}
+              onClick={() => setShareLinkOpen(true)}
               className="h-11 w-full"
               variant="default"
             >
-              <Copy className="mr-2 h-4 w-4" /> Copiar lista en texto
+              <Link2 className="mr-2 h-4 w-4" /> Compartir por enlace
             </Button>
-            <Button
-              onClick={handleShareFile}
-              variant="outline"
-              className="h-11 w-full"
-            >
-              <Send className="mr-2 h-4 w-4" /> Enviar archivo a un amigo
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={handleCopyWhatsapp}
+                variant="outline"
+                className="h-11"
+              >
+                <Copy className="mr-2 h-4 w-4" /> Texto
+              </Button>
+              <Button
+                onClick={handleShareFile}
+                variant="outline"
+                className="h-11"
+              >
+                <Send className="mr-2 h-4 w-4" /> Archivo
+              </Button>
+            </div>
             <p className="px-1 text-[11px] text-muted-foreground">
-              <strong>Texto</strong>: pégalo en cualquier chat para enseñar tus
-              repes y faltas a un amigo.{" "}
-              <strong>Archivo</strong>: si tu amigo también usa esta app, podrá
-              importarlo y ver al instante en qué cromos os hacéis match.
+              <strong>Enlace</strong>: tu amigo lo abre en su móvil y la app
+              le importa la colección de un toque.{" "}
+              <strong>Texto</strong>: lista de repes y faltas para pegar en
+              cualquier chat.{" "}
+              <strong>Archivo</strong>: lo mismo que el enlace pero como{" "}
+              <code>.json</code>, útil si el chat corta enlaces largos.
             </p>
 
             <CodeList
@@ -276,6 +309,13 @@ export default function IntercambioPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <ShareLinkDialog
+        open={shareLinkOpen}
+        onOpenChange={setShareLinkOpen}
+        counts={counts}
+        ownerName={ownerName}
+      />
     </div>
   );
 }
