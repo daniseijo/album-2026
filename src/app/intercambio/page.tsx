@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
+  ArrowDown,
   ArrowUp,
   Check,
   Copy,
@@ -202,15 +203,22 @@ export default function IntercambioPage() {
             </p>
 
             <CodeList
-              title="Mis repes para intercambiar"
-              subtitle="Estos son los que vas a compartir. Las faltas no se incluyen porque sin saber qué tiene tu amigo no son accionables; el archivo JSON sí lleva tu colección entera."
+              title="Me sobran"
               icon={<ArrowUp className="h-4 w-4" />}
               tone="emerald"
               items={dupeCodes.map((d) => ({
                 code: d.code,
-                badge: d.c - 1 > 1 ? `×${d.c - 1}` : undefined,
+                badge: `×${d.c - 1}`,
               }))}
               empty="Aún no tienes repes"
+            />
+            <CodeList
+              title="Me faltan"
+              icon={<ArrowDown className="h-4 w-4" />}
+              tone="amber"
+              items={missingCodes.map((code) => ({ code }))}
+              empty="¡Álbum completo!"
+              limit={120}
             />
           </TabsContent>
 
@@ -412,7 +420,7 @@ function TradeBuilder({
         tone="amber"
         items={iWantFromThem.map((m) => ({
           code: m.code,
-          extra: m.theirCount > 2 ? `×${m.theirCount - 1}` : undefined,
+          extra: `×${m.theirCount - 1}`,
         }))}
         selected={pido}
         onToggle={togglePido}
@@ -427,7 +435,7 @@ function TradeBuilder({
         tone="emerald"
         items={iCanGiveThem.map((m) => ({
           code: m.code,
-          extra: m.myCount > 2 ? `×${m.myCount - 1}` : undefined,
+          extra: `×${m.myCount - 1}`,
         }))}
         selected={doy}
         onToggle={toggleDoy}

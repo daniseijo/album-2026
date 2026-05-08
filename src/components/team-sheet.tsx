@@ -256,7 +256,7 @@ function StickerTile({
       </span>
       {repe ? (
         <span className="absolute bottom-0.5 right-0.5 rounded bg-warning-strong px-1 text-[9px] font-semibold leading-tight text-white">
-          ×{count}
+          ×{dupes}
         </span>
       ) : null}
     </button>

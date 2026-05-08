@@ -280,13 +280,14 @@ export function compareCollections(
 }
 
 export function buildWhatsappText(counts: Counts, ownerName?: string): string {
-  // Solo repes: lo que sí podemos intercambiar. Las faltas sin saber qué
-  // tiene el otro no son accionables y solo ensucian el mensaje. Si hay
-  // que mirar el resto, ahí está el JSON con la colección completa.
-  const dupes: { code: string; c: number }[] = [];
+  // El 1 está pegado en el álbum, los siguientes son repes para
+  // intercambiar. Siempre mostramos ×N con N = count - 1.
+  const missing: string[] = [];
+  const dupes: { code: string; repes: number }[] = [];
   for (const s of STICKERS) {
     const c = counts[s.code] ?? 0;
-    if (c > 1) dupes.push({ code: s.code, c: c - 1 });
+    if (c === 0) missing.push(s.code);
+    else if (c > 1) dupes.push({ code: s.code, repes: c - 1 });
   }
 
   const header = ownerName
@@ -295,15 +296,19 @@ export function buildWhatsappText(counts: Counts, ownerName?: string): string {
 
   const parts = [header, ""];
 
-  parts.push(`🤝 REPES PARA INTERCAMBIAR (${dupes.length}):`);
-  if (dupes.length === 0) {
-    parts.push("Aún no tengo repes para intercambiar.");
-  } else {
+  parts.push(`🤝 ME SOBRAN (${dupes.length}):`);
+  if (dupes.length === 0) parts.push("—");
+  else {
     parts.push(
-      dupes
-        .map(({ code, c }) => (c > 1 ? `${code} ×${c}` : code))
-        .join(", "),
+      dupes.map(({ code, repes }) => `${code} ×${repes}`).join(", "),
     );
+  }
+  parts.push("");
+
+  parts.push(`📌 ME FALTAN (${missing.length}):`);
+  if (missing.length === 0) parts.push("—");
+  else {
+    parts.push(missing.join(", "));
   }
 
   return parts.join("\n");
