@@ -8,10 +8,11 @@ import { GROUPS, SECTIONS, Section } from "@/lib/album";
 import { summarize, useCollection } from "@/lib/collection";
 import { TeamCard } from "@/components/team-card";
 import { TeamSheet } from "@/components/team-sheet";
-import { ArrowLeftRight, Search, Send } from "lucide-react";
+import { ArrowDownAZ, ArrowLeftRight, BookOpen, Search, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type GroupFilter = "all" | "fwc" | (typeof GROUPS)[number];
+type SortMode = "album" | "alpha";
 
 export default function HomePage() {
   const { counts } = useCollection();
@@ -19,12 +20,13 @@ export default function HomePage() {
 
   const [group, setGroup] = useState<GroupFilter>("all");
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortMode>("album");
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const sections = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return SECTIONS.filter((s) => {
+    const filtered = SECTIONS.filter((s) => {
       if (group === "all") {
         // mostrar todo
       } else if (group === "fwc") {
@@ -37,7 +39,16 @@ export default function HomePage() {
       }
       return true;
     });
-  }, [group, query]);
+    if (sort === "alpha") {
+      // FWC siempre primero; el resto, alfabético por nombre.
+      return [...filtered].sort((a, b) => {
+        if (a.kind === "fwc") return -1;
+        if (b.kind === "fwc") return 1;
+        return a.name.localeCompare(b.name, "es");
+      });
+    }
+    return filtered;
+  }, [group, query, sort]);
 
   const openTeam = (s: Section) => {
     setOpenSection(s);
@@ -115,15 +126,47 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar selección…"
-            className="h-11 rounded-xl pl-10 bg-card"
-            inputMode="search"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar selección…"
+              className="h-11 rounded-xl pl-10 bg-card"
+              inputMode="search"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setSort((s) => (s === "album" ? "alpha" : "album"))}
+            className={cn(
+              "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition-colors",
+              sort === "album"
+                ? "border-foreground bg-foreground text-background"
+                : "border-border bg-card hover:bg-accent",
+            )}
+            aria-label={
+              sort === "album" ? "Cambiar a orden A-Z" : "Cambiar a orden del álbum"
+            }
+            title={
+              sort === "album"
+                ? "Orden del álbum (toca para cambiar a A-Z)"
+                : "Orden A-Z (toca para cambiar a orden del álbum)"
+            }
+          >
+            {sort === "album" ? (
+              <>
+                <BookOpen className="h-3.5 w-3.5" />
+                Álbum
+              </>
+            ) : (
+              <>
+                <ArrowDownAZ className="h-3.5 w-3.5" />
+                A-Z
+              </>
+            )}
+          </button>
         </div>
 
         {sections.length === 0 ? (
