@@ -46,6 +46,9 @@
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-warning-strong: var(--warning-strong);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-accent: var(--brand-accent);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -93,12 +96,19 @@
   --sidebar-border: oklch(0.91 0.008 90);
   --sidebar-ring: oklch(0.83 0.17 90);
 
-  --cream: oklch(0.96 0.05 92);             /* dorado pálido */
-  --success: oklch(0.5 0.13 145);           /* verde FIFA */
-  --success-soft: oklch(0.93 0.07 145);
+  --cream: oklch(0.96 0.06 92);             /* dorado pálido */
+  --success: oklch(0.5 0.14 145);           /* verde FIFA */
+  --success-soft: oklch(0.88 0.1 145);      /* verde claro vibrante */
   --warning: oklch(0.83 0.17 90);           /* dorado FIFA */
-  --warning-soft: oklch(0.95 0.1 92);
+  --warning-soft: oklch(0.92 0.13 92);      /* dorado claro vibrante */
   --warning-strong: oklch(0.72 0.17 85);
+
+  /* Tokens de marca: SIEMPRE el mismo color en light y dark, para
+     mantener la identidad visual FIFA (negro como ancla, dorado
+     como acento) sin que el tema lo invierta. */
+  --brand: oklch(0.16 0 0);
+  --brand-foreground: oklch(0.985 0.004 95);
+  --brand-accent: oklch(0.83 0.17 90);
 }
 
 .dark {

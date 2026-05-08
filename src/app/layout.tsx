@@ -32,10 +32,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafaf6" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
+  // El header de la app es negro siempre (token --brand) en ambos
+  // modos para mantener la identidad FIFA, así que la barra de estado
+  // lo refleja sin saltos visuales.
+  themeColor: "#0a0a0a",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

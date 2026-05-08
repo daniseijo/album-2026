@@ -3,16 +3,23 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { buttonVariants } from "@/components/ui/button";
 import { GROUPS, SECTIONS, Section } from "@/lib/album";
 import { summarize, useCollection } from "@/lib/collection";
 import { TeamCard } from "@/components/team-card";
 import { TeamSheet } from "@/components/team-sheet";
-import { ArrowDownAZ, ArrowLeftRight, BookOpen, Search, Send } from "lucide-react";
+import { ArrowDownAZ, ArrowLeftRight, BookOpen, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type GroupFilter = "all" | "fwc" | (typeof GROUPS)[number];
 type SortMode = "album" | "alpha";
+
+function normalize(s: string) {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
 
 export default function HomePage() {
   const { counts } = useCollection();
@@ -25,7 +32,7 @@ export default function HomePage() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const sections = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = normalize(query);
     const filtered = SECTIONS.filter((s) => {
       if (group === "all") {
         // mostrar todo
@@ -35,7 +42,7 @@ export default function HomePage() {
         if (s.kind !== "team" || s.group !== group) return false;
       }
       if (q.length > 0) {
-        return s.name.toLowerCase().includes(q);
+        return normalize(s.name).includes(q);
       }
       return true;
     });
@@ -59,40 +66,27 @@ export default function HomePage() {
   return (
     <div>
       <header
-        className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        className="sticky top-0 z-30 border-b border-brand-accent/30 bg-brand text-brand-foreground"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="mx-auto flex max-w-2xl items-start justify-between gap-3 px-4 py-3.5">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5">
           <div className="min-w-0">
             <h1 className="text-[20px] font-semibold leading-tight tracking-tight">
-              Álbum Mundial 2026{" "}
-              <span className="font-normal text-muted-foreground">Panini</span>
+              Álbum Mundial{" "}
+              <span className="text-brand-accent">2026</span>{" "}
+              <span className="font-normal text-brand-foreground/60">
+                Panini
+              </span>
             </h1>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/intercambio"
-              prefetch
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "rounded-full h-8 gap-1.5 px-3 text-xs",
-              )}
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5" />
-              Intercambio
-            </Link>
-            <Link
-              href="/intercambio?to=whatsapp"
-              prefetch
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "rounded-full h-8 gap-1.5 px-3 text-xs",
-              )}
-            >
-              <Send className="h-3.5 w-3.5" />
-              WhatsApp
-            </Link>
-          </div>
+          <Link
+            href="/intercambio"
+            prefetch
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-brand-foreground/30 bg-brand-foreground/5 px-3 text-xs font-medium text-brand-foreground hover:bg-brand-foreground/15 transition-colors"
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+            Intercambio
+          </Link>
         </div>
       </header>
 
@@ -142,7 +136,7 @@ export default function HomePage() {
             className={cn(
               "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition-colors",
               sort === "album"
-                ? "border-foreground bg-foreground text-background"
+                ? "border-brand bg-brand text-brand-foreground"
                 : "border-border bg-card hover:bg-accent",
             )}
             aria-label={
@@ -248,9 +242,9 @@ function GroupChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-full border px-3 py-1.5 text-xs transition-colors",
+        "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
         active
-          ? "border-foreground bg-foreground text-background"
+          ? "border-brand bg-brand text-brand-foreground"
           : "border-border bg-card hover:bg-accent",
       )}
     >
