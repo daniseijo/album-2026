@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#fafafa" stroke-width="12"/>
+  <path d="M256 96 L312 200 L424 216 L340 296 L360 408 L256 356 L152 408 L172 296 L88 216 L200 200 Z" fill="#fafafa"/>
+  <text x="256" y="478" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="72" font-weight="800" text-anchor="middle" fill="#fafafa">26</text>
+</svg>

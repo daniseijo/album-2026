@@ -1,0 +1,221 @@
+export type StickerKind =
+  | "intro"
+  | "history"
+  | "badge"
+  | "team_photo"
+  | "player";
+
+export type Sticker = {
+  number: number;
+  sectionId: string;
+  sectionName: string;
+  kind: StickerKind;
+  label: string;
+  teamCode?: string;
+  flag?: string;
+  teamLocalIndex?: number;
+};
+
+export type Section = {
+  id: string;
+  name: string;
+  flag?: string;
+  range: [number, number];
+  kind: "intro" | "history" | "team";
+  group?: string;
+};
+
+export type GroupId =
+  | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L";
+
+type TeamSeed = {
+  code: string;
+  name: string;
+  flag: string;
+  group: GroupId;
+};
+
+export const TEAMS: TeamSeed[] = [
+  { code: "ALG", name: "Argelia", flag: "🇩🇿", group: "J" },
+  { code: "ARG", name: "Argentina", flag: "🇦🇷", group: "J" },
+  { code: "AUS", name: "Australia", flag: "🇦🇺", group: "D" },
+  { code: "AUT", name: "Austria", flag: "🇦🇹", group: "J" },
+  { code: "BEL", name: "Bélgica", flag: "🇧🇪", group: "G" },
+  { code: "BIH", name: "Bosnia y Herzegovina", flag: "🇧🇦", group: "B" },
+  { code: "BRA", name: "Brasil", flag: "🇧🇷", group: "C" },
+  { code: "CAN", name: "Canadá", flag: "🇨🇦", group: "B" },
+  { code: "CPV", name: "Cabo Verde", flag: "🇨🇻", group: "H" },
+  { code: "CIV", name: "Costa de Marfil", flag: "🇨🇮", group: "E" },
+  { code: "COL", name: "Colombia", flag: "🇨🇴", group: "K" },
+  { code: "COD", name: "RD Congo", flag: "🇨🇩", group: "K" },
+  { code: "CRO", name: "Croacia", flag: "🇭🇷", group: "L" },
+  { code: "CUW", name: "Curazao", flag: "🇨🇼", group: "E" },
+  { code: "CZE", name: "Chequia", flag: "🇨🇿", group: "A" },
+  { code: "ECU", name: "Ecuador", flag: "🇪🇨", group: "E" },
+  { code: "EGY", name: "Egipto", flag: "🇪🇬", group: "G" },
+  { code: "ENG", name: "Inglaterra", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", group: "L" },
+  { code: "FRA", name: "Francia", flag: "🇫🇷", group: "I" },
+  { code: "GER", name: "Alemania", flag: "🇩🇪", group: "E" },
+  { code: "GHA", name: "Ghana", flag: "🇬🇭", group: "L" },
+  { code: "HAI", name: "Haití", flag: "🇭🇹", group: "C" },
+  { code: "IRN", name: "Irán", flag: "🇮🇷", group: "G" },
+  { code: "IRQ", name: "Irak", flag: "🇮🇶", group: "I" },
+  { code: "JPN", name: "Japón", flag: "🇯🇵", group: "F" },
+  { code: "JOR", name: "Jordania", flag: "🇯🇴", group: "J" },
+  { code: "KOR", name: "Corea del Sur", flag: "🇰🇷", group: "A" },
+  { code: "MEX", name: "México", flag: "🇲🇽", group: "A" },
+  { code: "MAR", name: "Marruecos", flag: "🇲🇦", group: "C" },
+  { code: "NED", name: "Países Bajos", flag: "🇳🇱", group: "F" },
+  { code: "NZL", name: "Nueva Zelanda", flag: "🇳🇿", group: "G" },
+  { code: "NOR", name: "Noruega", flag: "🇳🇴", group: "I" },
+  { code: "PAN", name: "Panamá", flag: "🇵🇦", group: "L" },
+  { code: "PAR", name: "Paraguay", flag: "🇵🇾", group: "D" },
+  { code: "POR", name: "Portugal", flag: "🇵🇹", group: "K" },
+  { code: "QAT", name: "Catar", flag: "🇶🇦", group: "B" },
+  { code: "KSA", name: "Arabia Saudita", flag: "🇸🇦", group: "H" },
+  { code: "SCO", name: "Escocia", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", group: "C" },
+  { code: "SEN", name: "Senegal", flag: "🇸🇳", group: "I" },
+  { code: "RSA", name: "Sudáfrica", flag: "🇿🇦", group: "A" },
+  { code: "ESP", name: "España", flag: "🇪🇸", group: "H" },
+  { code: "SWE", name: "Suecia", flag: "🇸🇪", group: "F" },
+  { code: "SUI", name: "Suiza", flag: "🇨🇭", group: "B" },
+  { code: "TUN", name: "Túnez", flag: "🇹🇳", group: "F" },
+  { code: "TUR", name: "Türkiye", flag: "🇹🇷", group: "D" },
+  { code: "USA", name: "Estados Unidos", flag: "🇺🇸", group: "D" },
+  { code: "URU", name: "Uruguay", flag: "🇺🇾", group: "H" },
+  { code: "UZB", name: "Uzbekistán", flag: "🇺🇿", group: "K" },
+];
+
+export const GROUPS: GroupId[] = [
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
+];
+
+const INTRO_STICKERS = [
+  "Logo Panini",
+  "Emblema oficial",
+  "Emblema oficial (variante)",
+  "Mascotas oficiales",
+  "Lema oficial",
+  "Balón oficial",
+  "Canadá (anfitrión)",
+  "México (anfitrión)",
+  "Estados Unidos (anfitrión)",
+];
+
+const HISTORY_LABELS = Array.from({ length: 11 }, (_, i) => `Historia FIFA ${i + 1}`);
+
+function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
+  const stickers: Sticker[] = [];
+  const sections: Section[] = [];
+
+  const introStart = 1;
+  INTRO_STICKERS.forEach((label, i) => {
+    stickers.push({
+      number: introStart + i,
+      sectionId: "intro",
+      sectionName: "Introducción",
+      kind: "intro",
+      label,
+    });
+  });
+  sections.push({
+    id: "intro",
+    name: "Introducción",
+    range: [introStart, introStart + INTRO_STICKERS.length - 1],
+    kind: "intro",
+  });
+
+  const historyStart = introStart + INTRO_STICKERS.length;
+  HISTORY_LABELS.forEach((label, i) => {
+    stickers.push({
+      number: historyStart + i,
+      sectionId: "history",
+      sectionName: "Historia FIFA",
+      kind: "history",
+      label,
+    });
+  });
+  sections.push({
+    id: "history",
+    name: "Historia FIFA",
+    range: [historyStart, historyStart + HISTORY_LABELS.length - 1],
+    kind: "history",
+  });
+
+  let cursor = historyStart + HISTORY_LABELS.length;
+  for (const team of TEAMS) {
+    const start = cursor;
+    stickers.push({
+      number: cursor,
+      sectionId: team.code,
+      sectionName: team.name,
+      kind: "badge",
+      label: "Escudo",
+      teamCode: team.code,
+      flag: team.flag,
+      teamLocalIndex: 1,
+    });
+    cursor += 1;
+    stickers.push({
+      number: cursor,
+      sectionId: team.code,
+      sectionName: team.name,
+      kind: "team_photo",
+      label: "Foto de equipo",
+      teamCode: team.code,
+      flag: team.flag,
+      teamLocalIndex: 2,
+    });
+    cursor += 1;
+    for (let p = 1; p <= 18; p++) {
+      stickers.push({
+        number: cursor,
+        sectionId: team.code,
+        sectionName: team.name,
+        kind: "player",
+        label: `Jugador ${p}`,
+        teamCode: team.code,
+        flag: team.flag,
+        teamLocalIndex: 2 + p,
+      });
+      cursor += 1;
+    }
+    sections.push({
+      id: team.code,
+      name: team.name,
+      flag: team.flag,
+      range: [start, cursor - 1],
+      kind: "team",
+      group: team.group,
+    });
+  }
+
+  return { stickers, sections };
+}
+
+const built = buildAlbum();
+
+export const STICKERS: Sticker[] = built.stickers;
+export const SECTIONS: Section[] = built.sections;
+export const TOTAL_STICKERS = STICKERS.length;
+
+export const STICKER_BY_NUMBER = new Map<number, Sticker>(
+  STICKERS.map((s) => [s.number, s]),
+);
+
+export function getSticker(n: number): Sticker | undefined {
+  return STICKER_BY_NUMBER.get(n);
+}
+
+export function formatStickerCode(s: Sticker): string {
+  if (s.kind === "intro") return `INTRO ${s.number}`;
+  if (s.kind === "history") return `HIST ${s.number - 9}`;
+  if (s.teamCode && s.teamLocalIndex)
+    return `${s.teamCode} ${s.teamLocalIndex}`;
+  return `#${s.number}`;
+}
+
+export function formatStickerCodeByNumber(n: number): string {
+  const s = STICKER_BY_NUMBER.get(n);
+  return s ? formatStickerCode(s) : `#${n}`;
+}
