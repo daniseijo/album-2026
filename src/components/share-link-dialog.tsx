@@ -85,14 +85,22 @@ function ShareLinkBody({
     const text = ownerName
       ? `Mi colección Mundial 2026 (${ownerName}): ${url}`
       : `Mi colección Mundial 2026: ${url}`;
-    if (typeof navigator !== "undefined" && navigator.share) {
+    const data: ShareData = { text };
+    const canShare =
+      typeof navigator !== "undefined" &&
+      typeof navigator.canShare === "function" &&
+      typeof navigator.share === "function" &&
+      navigator.canShare(data);
+    if (canShare) {
       try {
-        await navigator.share({ text });
+        await navigator.share(data);
         return;
       } catch (e) {
         if ((e as Error).name === "AbortError") return;
       }
     }
+    // Fallback: portapapeles. Sin share API o si falla, al menos
+    // dejamos el enlace listo para pegar.
     handleCopy();
   };
 

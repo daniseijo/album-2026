@@ -38,6 +38,7 @@ export default function IntercambioPage() {
   const { counts, ownerName, setOwnerName } = useCollection();
 
   const [friend, setFriend] = useState<ExportPayload | null>(null);
+  const [tab, setTab] = useState<"mine" | "friend">("mine");
   const [shareLinkOpen, setShareLinkOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -75,14 +76,12 @@ export default function IntercambioPage() {
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
-    const file = new File(
-      [blob],
-      `album-2026${ownerName ? `-${slug(ownerName)}` : ""}.json`,
-      { type: "application/json" },
-    );
+    const filename = `album-2026${ownerName ? `-${slug(ownerName)}` : ""}.json`;
+    const file = new File([blob], filename, { type: "application/json" });
     const canShareFile =
       typeof navigator !== "undefined" &&
       typeof navigator.canShare === "function" &&
+      typeof navigator.share === "function" &&
       navigator.canShare({ files: [file] });
     if (canShareFile) {
       try {
@@ -98,11 +97,16 @@ export default function IntercambioPage() {
         if ((e as Error).name === "AbortError") return;
       }
     }
+    // Fallback: descarga directa. Algunos navegadores ignoran el click
+    // si el <a> no está en el DOM, así que lo añadimos antes de pulsarlo.
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = file.name;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast.success("Archivo descargado", {
       description: "Adjúntalo en tu chat",
@@ -114,6 +118,7 @@ export default function IntercambioPage() {
       const text = await file.text();
       const data = parseImport(text);
       setFriend(data);
+      setTab("friend");
       toast.success(
         `Cargada colección de ${data.ownerName ?? "tu amigo"}`,
       );
@@ -159,6 +164,7 @@ export default function IntercambioPage() {
         sessionStorage.removeItem(SESSION_INCOMING_FRIEND_KEY);
         const data = JSON.parse(raw) as ExportPayload;
         setFriend(data);
+        setTab("friend");
         toast.success(
           `Cargada colección de ${data.ownerName ?? "tu amigo"}`,
         );
@@ -191,7 +197,11 @@ export default function IntercambioPage() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="mine" className="w-full">
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as "mine" | "friend")}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="mine">Mi lista</TabsTrigger>
             <TabsTrigger value="friend">

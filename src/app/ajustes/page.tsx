@@ -39,7 +39,10 @@ export default function AjustesPage() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `album-2026${ownerName ? `-${slug(ownerName)}` : ""}.json`;
+    a.rel = "noopener";
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast.success("Archivo descargado");
   };
