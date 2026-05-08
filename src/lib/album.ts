@@ -2,6 +2,7 @@ export type StickerKind = "fwc" | "badge" | "team_photo" | "player";
 
 export type Sticker = {
   number: number;
+  code: string;
   sectionId: string;
   sectionName: string;
   kind: StickerKind;
@@ -102,6 +103,23 @@ export const GROUPS: GroupId[] = [
 const FWC_SIZE = 20;
 const FWC_TROPHY = "🏆";
 
+function makeCode(s: Omit<Sticker, "code">): string {
+  if (s.kind === "fwc") {
+    if (s.number === 1) return "00";
+    return `FWC ${s.number - 1}`;
+  }
+  if (s.teamCode && s.teamLocalIndex !== undefined)
+    return `${s.teamCode} ${s.teamLocalIndex}`;
+  return `#${s.number}`;
+}
+
+function pushSticker(
+  arr: Sticker[],
+  data: Omit<Sticker, "code">,
+): void {
+  arr.push({ ...data, code: makeCode(data) });
+}
+
 function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
   const stickers: Sticker[] = [];
   const sections: Section[] = [];
@@ -109,7 +127,7 @@ function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
   // FWC section: sticker #1 is the cover ("00") and #2..#20 are FWC 1..19.
   const fwcStart = 1;
   for (let i = 0; i < FWC_SIZE; i++) {
-    stickers.push({
+    pushSticker(stickers, {
       number: fwcStart + i,
       sectionId: "FWC",
       sectionName: "FIFA World Cup",
@@ -131,7 +149,7 @@ function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
     const start = cursor;
 
     // 1: badge
-    stickers.push({
+    pushSticker(stickers, {
       number: cursor,
       sectionId: team.code,
       sectionName: team.name,
@@ -145,7 +163,7 @@ function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
 
     // 2..12: first 11 players
     for (let i = 0; i < 11; i++) {
-      stickers.push({
+      pushSticker(stickers, {
         number: cursor,
         sectionId: team.code,
         sectionName: team.name,
@@ -159,7 +177,7 @@ function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
     }
 
     // 13: team photo
-    stickers.push({
+    pushSticker(stickers, {
       number: cursor,
       sectionId: team.code,
       sectionName: team.name,
@@ -173,7 +191,7 @@ function buildAlbum(): { stickers: Sticker[]; sections: Section[] } {
 
     // 14..20: remaining 7 players
     for (let i = 0; i < 7; i++) {
-      stickers.push({
+      pushSticker(stickers, {
         number: cursor,
         sectionId: team.code,
         sectionName: team.name,
@@ -209,21 +227,23 @@ export const STICKER_BY_NUMBER = new Map<number, Sticker>(
   STICKERS.map((s) => [s.number, s]),
 );
 
+export const STICKER_BY_CODE = new Map<string, Sticker>(
+  STICKERS.map((s) => [s.code, s]),
+);
+
 export function getSticker(n: number): Sticker | undefined {
   return STICKER_BY_NUMBER.get(n);
 }
 
+export function getStickerByCode(code: string): Sticker | undefined {
+  return STICKER_BY_CODE.get(code);
+}
+
 export function formatStickerCode(s: Sticker): string {
-  if (s.kind === "fwc") {
-    if (s.number === 1) return "00";
-    return `FWC ${s.number - 1}`;
-  }
-  if (s.teamCode && s.teamLocalIndex !== undefined)
-    return `${s.teamCode} ${s.teamLocalIndex}`;
-  return `#${s.number}`;
+  return s.code;
 }
 
 export function formatStickerCodeByNumber(n: number): string {
   const s = STICKER_BY_NUMBER.get(n);
-  return s ? formatStickerCode(s) : `#${n}`;
+  return s ? s.code : `#${n}`;
 }

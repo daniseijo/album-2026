@@ -51,24 +51,24 @@ function TeamSheetBody({ section }: { section: Section }) {
     );
   }, [section]);
 
-  const owned = stickers.filter((s) => (counts[s.number] ?? 0) >= 1).length;
+  const owned = stickers.filter((s) => (counts[s.code] ?? 0) >= 1).length;
   const dupes = stickers.reduce(
-    (acc, s) => acc + Math.max(0, (counts[s.number] ?? 0) - 1),
+    (acc, s) => acc + Math.max(0, (counts[s.code] ?? 0) - 1),
     0,
   );
 
   const visible = stickers.filter((s) => {
-    const c = counts[s.number] ?? 0;
+    const c = counts[s.code] ?? 0;
     if (filter === "owned" && c === 0) return false;
     if (filter === "missing" && c > 0) return false;
     if (filter === "dupes" && c <= 1) return false;
     return true;
   });
 
-  const onTileTap = (n: number) => {
-    const c = counts[n] ?? 0;
-    if (erase) setExact(n, Math.max(0, c - 1));
-    else setExact(n, c + 1);
+  const onTileTap = (code: string) => {
+    const c = counts[code] ?? 0;
+    if (erase) setExact(code, Math.max(0, c - 1));
+    else setExact(code, c + 1);
   };
 
   return (
@@ -117,10 +117,10 @@ function TeamSheetBody({ section }: { section: Section }) {
         >
           {visible.map((s) => (
             <StickerTile
-              key={s.number}
+              key={s.code}
               sticker={s}
-              count={counts[s.number] ?? 0}
-              onTap={() => onTileTap(s.number)}
+              count={counts[s.code] ?? 0}
+              onTap={() => onTileTap(s.code)}
               erase={erase}
             />
           ))}

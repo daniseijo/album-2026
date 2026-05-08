@@ -1,6 +1,6 @@
 "use client";
 
-import { Section } from "@/lib/album";
+import { Section, STICKER_BY_NUMBER } from "@/lib/album";
 import { Counts } from "@/lib/collection";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +19,8 @@ export function TeamCard({
   const dots: ("missing" | "owned" | "dupe")[] = [];
   let owned = 0;
   for (let n = section.range[0]; n <= section.range[1]; n++) {
-    const c = counts[n] ?? 0;
+    const s = STICKER_BY_NUMBER.get(n);
+    const c = s ? counts[s.code] ?? 0 : 0;
     if (c === 0) dots.push("missing");
     else if (c === 1) {
       dots.push("owned");

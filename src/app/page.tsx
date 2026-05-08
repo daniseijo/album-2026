@@ -39,15 +39,14 @@ export default function HomePage() {
       }
       return true;
     });
+    // Mover la sección FWC al final (con col-span-full encaja como cierre
+    // y deja al resto en parejas por grupo).
+    const fwc = filtered.find((s) => s.kind === "fwc");
+    const teams = filtered.filter((s) => s.kind !== "fwc");
     if (sort === "alpha") {
-      // FWC siempre primero; el resto, alfabético por nombre.
-      return [...filtered].sort((a, b) => {
-        if (a.kind === "fwc") return -1;
-        if (b.kind === "fwc") return 1;
-        return a.name.localeCompare(b.name, "es");
-      });
+      teams.sort((a, b) => a.name.localeCompare(b.name, "es"));
     }
-    return filtered;
+    return fwc ? [...teams, fwc] : teams;
   }, [group, query, sort]);
 
   const openTeam = (s: Section) => {
@@ -176,12 +175,16 @@ export default function HomePage() {
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {sections.map((s) => (
-              <TeamCard
+              <div
                 key={s.id}
-                section={s}
-                counts={counts}
-                onClick={() => openTeam(s)}
-              />
+                className={cn(s.kind === "fwc" && "col-span-full")}
+              >
+                <TeamCard
+                  section={s}
+                  counts={counts}
+                  onClick={() => openTeam(s)}
+                />
+              </div>
             ))}
           </div>
         )}

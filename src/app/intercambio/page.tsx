@@ -28,32 +28,31 @@ import {
   type ExportPayload,
   type TradeMatch,
 } from "@/lib/collection";
-import { formatStickerCodeByNumber, getSticker } from "@/lib/album";
+import { STICKERS, getStickerByCode } from "@/lib/album";
 import { cn } from "@/lib/utils";
 
 export default function IntercambioPage() {
   const { counts, ownerName, setOwnerName } = useCollection();
-  const totals = summarize(counts);
 
   const [friend, setFriend] = useState<ExportPayload | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const dupeNumbers = useMemo(
+  const dupeCodes = useMemo(
     () =>
-      Object.entries(counts)
-        .filter(([, c]) => (c as number) > 1)
-        .map(([n, c]) => ({ n: Number(n), c: c as number }))
+      STICKERS
+        .map((s) => ({ code: s.code, n: s.number, c: counts[s.code] ?? 0 }))
+        .filter((it) => it.c > 1)
         .sort((a, b) => a.n - b.n),
     [counts],
   );
 
-  const missingNumbers = useMemo(() => {
-    const out: number[] = [];
-    for (let i = 1; i <= totals.total; i++) {
-      if (!counts[i]) out.push(i);
-    }
-    return out;
-  }, [counts, totals.total]);
+  const missingCodes = useMemo(
+    () =>
+      STICKERS
+        .filter((s) => !counts[s.code])
+        .map((s) => s.code),
+    [counts],
+  );
 
   const handleCopyWhatsapp = async () => {
     const text = buildWhatsappText(counts, ownerName);
@@ -150,9 +149,9 @@ export default function IntercambioPage() {
       <PageHeader
         title="Intercambio"
         subtitle={
-          dupeNumbers.length === 0 && missingNumbers.length === 0
+          dupeCodes.length === 0 && missingCodes.length === 0
             ? "Empieza marcando cromos"
-            : `${dupeNumbers.length} repes · ${missingNumbers.length} faltan`
+            : `${dupeCodes.length} repes · ${missingCodes.length} faltan`
         }
       />
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
@@ -203,21 +202,21 @@ export default function IntercambioPage() {
               importarlo y ver al instante en qué cromos os hacéis match.
             </p>
 
-            <NumberList
+            <CodeList
               title="Me sobran"
               icon={<ArrowUp className="h-4 w-4" />}
               tone="emerald"
-              items={dupeNumbers.map((d) => ({
-                number: d.n,
+              items={dupeCodes.map((d) => ({
+                code: d.code,
                 badge: d.c - 1 > 1 ? `×${d.c - 1}` : undefined,
               }))}
               empty="Aún no tienes repes"
             />
-            <NumberList
+            <CodeList
               title="Me faltan"
               icon={<ArrowDown className="h-4 w-4" />}
               tone="amber"
-              items={missingNumbers.map((n) => ({ number: n }))}
+              items={missingCodes.map((code) => ({ code }))}
               empty="¡Álbum completo!"
               limit={120}
             />
@@ -302,45 +301,45 @@ function TradeBuilder({
   ownerName?: string;
   friendName?: string;
 }) {
-  const [pido, setPido] = useState<Set<number>>(() => new Set());
-  const [doy, setDoy] = useState<Set<number>>(() => new Set());
+  const [pido, setPido] = useState<Set<string>>(() => new Set());
+  const [doy, setDoy] = useState<Set<string>>(() => new Set());
 
-  const togglePido = (n: number) =>
+  const togglePido = (code: string) =>
     setPido((s) => {
       const next = new Set(s);
-      if (next.has(n)) next.delete(n);
-      else next.add(n);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
       return next;
     });
-  const toggleDoy = (n: number) =>
+  const toggleDoy = (code: string) =>
     setDoy((s) => {
       const next = new Set(s);
-      if (next.has(n)) next.delete(n);
-      else next.add(n);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
       return next;
     });
 
   const allPido = () =>
-    setPido(new Set(iWantFromThem.map((m) => m.number)));
+    setPido(new Set(iWantFromThem.map((m) => m.code)));
   const clearPido = () => setPido(new Set());
-  const allDoy = () => setDoy(new Set(iCanGiveThem.map((m) => m.number)));
+  const allDoy = () => setDoy(new Set(iCanGiveThem.map((m) => m.code)));
   const clearDoy = () => setDoy(new Set());
 
   const matchAuto = () => {
     const pairs = Math.min(iWantFromThem.length, iCanGiveThem.length);
-    setPido(new Set(iWantFromThem.slice(0, pairs).map((m) => m.number)));
-    setDoy(new Set(iCanGiveThem.slice(0, pairs).map((m) => m.number)));
+    setPido(new Set(iWantFromThem.slice(0, pairs).map((m) => m.code)));
+    setDoy(new Set(iCanGiveThem.slice(0, pairs).map((m) => m.code)));
   };
 
   const pidoArr = useMemo(
     () =>
       iWantFromThem
-        .filter((m) => pido.has(m.number))
-        .map((m) => m.number),
+        .filter((m) => pido.has(m.code))
+        .map((m) => m.code),
     [pido, iWantFromThem],
   );
   const doyArr = useMemo(
-    () => iCanGiveThem.filter((m) => doy.has(m.number)).map((m) => m.number),
+    () => iCanGiveThem.filter((m) => doy.has(m.code)).map((m) => m.code),
     [doy, iCanGiveThem],
   );
 
@@ -420,7 +419,7 @@ function TradeBuilder({
         subtitle="Cromos que tu amigo tiene de sobra y a ti te faltan"
         tone="amber"
         items={iWantFromThem.map((m) => ({
-          number: m.number,
+          code: m.code,
           extra: m.theirCount > 2 ? `×${m.theirCount - 1}` : undefined,
         }))}
         selected={pido}
@@ -435,7 +434,7 @@ function TradeBuilder({
         subtitle={`Cromos que ${myShort} tiene de sobra y a ${friendShort} le faltan`}
         tone="emerald"
         items={iCanGiveThem.map((m) => ({
-          number: m.number,
+          code: m.code,
           extra: m.myCount > 2 ? `×${m.myCount - 1}` : undefined,
         }))}
         selected={doy}
@@ -500,14 +499,14 @@ function SelectableList({
   title: string;
   subtitle?: string;
   tone: "emerald" | "amber";
-  items: { number: number; extra?: string }[];
-  selected: Set<number>;
-  onToggle: (n: number) => void;
+  items: { code: string; extra?: string }[];
+  selected: Set<string>;
+  onToggle: (code: string) => void;
   onAll: () => void;
   onClear: () => void;
   empty: string;
 }) {
-  const selectedCount = items.filter((it) => selected.has(it.number)).length;
+  const selectedCount = items.filter((it) => selected.has(it.code)).length;
   return (
     <Card>
       <CardContent className="space-y-2 p-4">
@@ -559,14 +558,13 @@ function SelectableList({
           <div className="-mx-1 max-h-72 overflow-y-auto pr-1">
             <div className="flex flex-wrap gap-1.5 px-1">
               {items.map((it) => {
-                const s = getSticker(it.number);
-                const code = formatStickerCodeByNumber(it.number);
-                const isSelected = selected.has(it.number);
+                const s = getStickerByCode(it.code);
+                const isSelected = selected.has(it.code);
                 return (
                   <button
-                    key={it.number}
+                    key={it.code}
                     type="button"
-                    onClick={() => onToggle(it.number)}
+                    onClick={() => onToggle(it.code)}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-all",
                       isSelected
@@ -593,7 +591,7 @@ function SelectableList({
                     {s?.flag ? (
                       <span className="text-sm leading-none">{s.flag}</span>
                     ) : null}
-                    <span className="font-semibold tabular-nums">{code}</span>
+                    <span className="font-semibold tabular-nums">{it.code}</span>
                     {it.extra ? (
                       <span className="text-[10px] text-muted-foreground">
                         {it.extra}
@@ -610,7 +608,7 @@ function SelectableList({
   );
 }
 
-function NumberList({
+function CodeList({
   title,
   subtitle,
   icon,
@@ -623,7 +621,7 @@ function NumberList({
   subtitle?: string;
   icon: React.ReactNode;
   tone: "emerald" | "amber";
-  items: { number: number; badge?: string }[];
+  items: { code: string; badge?: string }[];
   empty: string;
   limit?: number;
 }) {
@@ -659,11 +657,10 @@ function NumberList({
           <>
             <div className="flex flex-wrap gap-1.5">
               {shown.map((it) => {
-                const s = getSticker(it.number);
-                const code = formatStickerCodeByNumber(it.number);
+                const s = getStickerByCode(it.code);
                 return (
                   <span
-                    key={it.number}
+                    key={it.code}
                     className={cn(
                       "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs tabular-nums",
                       tone === "emerald" &&
@@ -676,7 +673,7 @@ function NumberList({
                     {s?.flag ? (
                       <span className="text-sm leading-none">{s.flag}</span>
                     ) : null}
-                    <span className="font-semibold">{code}</span>
+                    <span className="font-semibold">{it.code}</span>
                     {it.badge ? (
                       <span className="text-[10px] text-muted-foreground">
                         {it.badge}
