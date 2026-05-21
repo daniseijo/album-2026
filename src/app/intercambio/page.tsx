@@ -20,9 +20,11 @@ import {
   ArrowUp,
   Check,
   ClipboardPaste,
+  Clock,
   Copy,
   History,
   Link2,
+  PlayCircle,
   RotateCcw,
   Send,
   FileUp,
@@ -56,9 +58,11 @@ import {
 import {
   addTradeEntry,
   deleteTradeEntry,
+  markTradeApplied,
   markTradeRedone,
   markTradeUndone,
   newEntryId,
+  tradeStatus,
   useTradeHistory,
   type TradeHistoryEntry,
 } from "@/lib/trade-history";
@@ -219,7 +223,11 @@ export default function IntercambioPage() {
     }
   };
 
-  const handleSendTrade = (pido: string[], doy: string[]) => {
+  const handleSendTrade = (
+    pido: string[],
+    doy: string[],
+    opts: { pending: boolean },
+  ) => {
     const id = newTradeId();
     const payload: TradePayload = {
       v: 1,
@@ -228,21 +236,34 @@ export default function IntercambioPage() {
       pido,
       doy,
     };
-    // Aplicamos en mi colección: doy = -1, pido = +1
-    const delta: Record<string, number> = {};
-    for (const code of doy) delta[code] = (delta[code] ?? 0) - 1;
-    for (const code of pido) delta[code] = (delta[code] ?? 0) + 1;
-    applyDelta(delta);
+    const now = new Date().toISOString();
+    if (!opts.pending) {
+      // Aplicamos en mi colección: doy = -1, pido = +1
+      const delta: Record<string, number> = {};
+      for (const code of doy) delta[code] = (delta[code] ?? 0) - 1;
+      for (const code of pido) delta[code] = (delta[code] ?? 0) + 1;
+      applyDelta(delta);
+    }
     addTradeEntry({
       id: newEntryId(),
       tradeId: id,
-      at: new Date().toISOString(),
+      at: now,
       partner: friend?.ownerName?.trim() || "Amigo",
       direction: "sent",
       gave: doy,
       received: pido,
+      pendingAt: opts.pending ? now : undefined,
     });
     return payload;
+  };
+
+  const handleApplyPending = (entry: TradeHistoryEntry) => {
+    const delta: Record<string, number> = {};
+    for (const code of entry.gave) delta[code] = (delta[code] ?? 0) - 1;
+    for (const code of entry.received) delta[code] = (delta[code] ?? 0) + 1;
+    applyDelta(delta);
+    markTradeApplied(entry.id);
+    toast.success("Intercambio aplicado");
   };
 
   const handleUndoTrade = (entry: TradeHistoryEntry) => {
@@ -468,6 +489,7 @@ export default function IntercambioPage() {
             <TradeHistoryView
               entries={history}
               onPaste={handlePasteLink}
+              onApply={handleApplyPending}
               onUndo={handleUndoTrade}
               onRedo={handleRedoTrade}
             />
@@ -513,7 +535,11 @@ function TradeBuilder({
   iCanGiveThem: TradeMatch[];
   ownerName?: string;
   friendName?: string;
-  onSendTrade: (pido: string[], doy: string[]) => TradePayload;
+  onSendTrade: (
+    pido: string[],
+    doy: string[],
+    opts: { pending: boolean },
+  ) => TradePayload;
 }) {
   const [pido, setPido] = useState<Set<string>>(() => new Set());
   const [doy, setDoy] = useState<Set<string>>(() => new Set());
@@ -608,17 +634,25 @@ function TradeBuilder({
     setConfirmOpen(true);
   };
 
-  const handleConfirmSend = () => {
-    const payload = onSendTrade(pidoArr, doyArr);
+  const finishSend = (pending: boolean) => {
+    const payload = onSendTrade(pidoArr, doyArr, { pending });
     setConfirmOpen(false);
     setLinkPayload(payload);
     setLinkOpen(true);
     setPido(new Set());
     setDoy(new Set());
-    toast.success("Intercambio aplicado", {
-      description: "Comparte el enlace con tu amigo.",
-    });
+    toast.success(
+      pending ? "Intercambio guardado como pendiente" : "Intercambio aplicado",
+      {
+        description: pending
+          ? "Comparte el enlace y aplícalo desde el Historial cuando os veáis."
+          : "Comparte el enlace con tu amigo.",
+      },
+    );
   };
+
+  const handleConfirmApply = () => finishSend(false);
+  const handleConfirmPending = () => finishSend(true);
 
   const friendShort = friendName ?? "tu amigo";
   const myShort = ownerName ?? "tú";
@@ -730,30 +764,58 @@ function TradeBuilder({
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Aplicar y compartir intercambio</DialogTitle>
+            <DialogTitle>Compartir intercambio</DialogTitle>
             <DialogDescription>
-              Se actualizará tu colección al instante:
-              {" "}
               {doyArr.length > 0
-                ? `entregarás ${doyArr.length} ${doyArr.length === 1 ? "cromo" : "cromos"}`
-                : "no entregas nada"}
+                ? `Entregarás ${doyArr.length} ${doyArr.length === 1 ? "cromo" : "cromos"}`
+                : "No entregas nada"}
               {" "}y{" "}
               {pidoArr.length > 0
                 ? `recibirás ${pidoArr.length} ${pidoArr.length === 1 ? "cromo" : "cromos"}`
                 : "no recibes nada"}
-              . Luego comparte el enlace con {friendShort}. Si la cosa no
-              acaba bien, puedes deshacerlo desde el Historial.
+              . Elige cuándo quieres tocar tu colección.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2">
+          <div className="space-y-2 rounded-md border bg-muted/40 p-3 text-xs">
+            <div className="flex items-start gap-2">
+              <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+              <div>
+                <div className="font-semibold">Aplicar y enviar</div>
+                <p className="text-muted-foreground">
+                  Actualizamos tu colección ahora. Útil si ya tienes los
+                  cromos físicamente o vais a hacer el cambio enseguida.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning-strong" />
+              <div>
+                <div className="font-semibold">Enviar y dejar pendiente</div>
+                <p className="text-muted-foreground">
+                  Guardamos el intercambio en el Historial sin tocar tu
+                  colección. Cuando os veáis con {friendShort}, le das a
+                  Aplicar.
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-col-reverse">
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={() => setConfirmOpen(false)}
+              className="w-full"
             >
               Cancelar
             </Button>
-            <Button onClick={handleConfirmSend}>
-              <Link2 className="mr-2 h-4 w-4" /> Aplicar y generar enlace
+            <Button
+              variant="outline"
+              onClick={handleConfirmPending}
+              className="w-full"
+            >
+              <Clock className="mr-2 h-4 w-4" /> Enviar y dejar pendiente
+            </Button>
+            <Button onClick={handleConfirmApply} className="w-full">
+              <Link2 className="mr-2 h-4 w-4" /> Aplicar y enviar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1046,11 +1108,13 @@ function DropZone({
 function TradeHistoryView({
   entries,
   onPaste,
+  onApply,
   onUndo,
   onRedo,
 }: {
   entries: TradeHistoryEntry[];
   onPaste: () => void;
+  onApply: (entry: TradeHistoryEntry) => void;
   onUndo: (entry: TradeHistoryEntry) => void;
   onRedo: (entry: TradeHistoryEntry) => void;
 }) {
@@ -1096,6 +1160,7 @@ function TradeHistoryView({
             <TradeHistoryRow
               key={entry.id}
               entry={entry}
+              onApply={() => onApply(entry)}
               onUndo={() => onUndo(entry)}
               onRedo={() => onRedo(entry)}
             />
@@ -1108,23 +1173,25 @@ function TradeHistoryView({
 
 function TradeHistoryRow({
   entry,
+  onApply,
   onUndo,
   onRedo,
 }: {
   entry: TradeHistoryEntry;
+  onApply: () => void;
   onUndo: () => void;
   onRedo: () => void;
 }) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmUndoOpen, setConfirmUndoOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const undone = !!entry.undoneAt;
+  const status = tradeStatus(entry);
   const when = useRelativeTime(entry.at);
   return (
-    <Card className={cn(undone && "opacity-60")}>
+    <Card className={cn(status === "undone" && "opacity-60")}>
       <CardContent className="space-y-2 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-sm font-semibold">
+            <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
               <span
                 className={cn(
                   "inline-flex h-5 items-center gap-1 rounded-full px-1.5 text-[10px] font-medium uppercase tracking-wide",
@@ -1135,23 +1202,51 @@ function TradeHistoryRow({
               >
                 {entry.direction === "sent" ? "Enviado" : "Recibido"}
               </span>
+              {status === "pending" ? (
+                <span className="inline-flex h-5 items-center gap-1 rounded-full bg-warning-soft px-1.5 text-[10px] font-medium uppercase tracking-wide text-warning-strong">
+                  <Clock className="h-2.5 w-2.5" /> Pendiente
+                </span>
+              ) : null}
               <span className="truncate">{entry.partner}</span>
             </div>
             <div className="text-[11px] text-muted-foreground">
               {when}
-              {undone ? " · deshecho" : ""}
+              {status === "pending"
+                ? " · sin aplicar"
+                : status === "undone"
+                  ? " · deshecho"
+                  : ""}
             </div>
           </div>
-          <div className="flex shrink-0 gap-1">
-            {!undone ? (
+          <div className="flex shrink-0 items-center gap-1">
+            {status === "applied" ? (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setConfirmOpen(true)}
+                onClick={() => setConfirmUndoOpen(true)}
                 className="h-7 text-xs"
               >
                 <RotateCcw className="mr-1 h-3 w-3" /> Deshacer
               </Button>
+            ) : status === "pending" ? (
+              <>
+                <Button
+                  size="sm"
+                  onClick={onApply}
+                  className="h-7 text-xs"
+                >
+                  <PlayCircle className="mr-1 h-3 w-3" /> Aplicar
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  aria-label="Descartar pendiente"
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
             ) : (
               <>
                 <Button
@@ -1176,20 +1271,20 @@ function TradeHistoryRow({
           </div>
         </div>
         <HistoryCodeLine
-          label="Diste"
+          label={status === "pending" ? "Darás" : "Diste"}
           tone="amber"
           icon={<ArrowUp className="h-3 w-3" />}
           codes={entry.gave}
         />
         <HistoryCodeLine
-          label="Recibiste"
+          label={status === "pending" ? "Recibirás" : "Recibiste"}
           tone="emerald"
           icon={<ArrowDown className="h-3 w-3" />}
           codes={entry.received}
         />
       </CardContent>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <Dialog open={confirmUndoOpen} onOpenChange={setConfirmUndoOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>¿Deshacer este intercambio?</DialogTitle>
@@ -1207,14 +1302,17 @@ function TradeHistoryRow({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmUndoOpen(false)}
+            >
               Cancelar
             </Button>
             <Button
               variant="destructive"
               onClick={() => {
                 onUndo();
-                setConfirmOpen(false);
+                setConfirmUndoOpen(false);
               }}
             >
               <RotateCcw className="mr-2 h-4 w-4" /> Deshacer
@@ -1226,10 +1324,15 @@ function TradeHistoryRow({
       <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>¿Eliminar del historial?</DialogTitle>
+            <DialogTitle>
+              {status === "pending"
+                ? "¿Descartar este pendiente?"
+                : "¿Eliminar del historial?"}
+            </DialogTitle>
             <DialogDescription>
-              Lo borraremos de la lista. Como ya está deshecho, tu colección
-              no cambia. Esta acción no se puede deshacer.
+              {status === "pending"
+                ? "Lo borraremos del historial. No tocábamos tu colección, así que no cambia nada en el álbum."
+                : "Lo borraremos de la lista. Como ya está deshecho, tu colección no cambia. Esta acción no se puede deshacer."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -1246,7 +1349,7 @@ function TradeHistoryRow({
                 setConfirmDeleteOpen(false);
               }}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+              <Trash2 className="mr-2 h-4 w-4" /> {status === "pending" ? "Descartar" : "Eliminar"}
             </Button>
           </DialogFooter>
         </DialogContent>

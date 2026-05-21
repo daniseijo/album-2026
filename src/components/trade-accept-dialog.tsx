@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Check, Copy, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Clock, Copy, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -48,30 +48,44 @@ export function TradeAcceptDialog({
 
   const already = findActiveByTradeId(payload.id);
 
-  const handleAccept = () => {
+  const acceptTrade = (opts: { pending: boolean }) => {
     if (already) {
-      toast.error("Este intercambio ya está aplicado");
+      toast.error("Este intercambio ya está en tu historial");
       onClose();
       return;
     }
-    const delta: Record<string, number> = {};
-    for (const code of youGive) delta[code] = (delta[code] ?? 0) - 1;
-    for (const code of youReceive) delta[code] = (delta[code] ?? 0) + 1;
-    applyCollectionDelta(delta);
+    const now = new Date().toISOString();
+    if (!opts.pending) {
+      const delta: Record<string, number> = {};
+      for (const code of youGive) delta[code] = (delta[code] ?? 0) - 1;
+      for (const code of youReceive) delta[code] = (delta[code] ?? 0) + 1;
+      applyCollectionDelta(delta);
+    }
     addTradeEntry({
       id: newEntryId(),
       tradeId: payload.id,
-      at: new Date().toISOString(),
+      at: now,
       partner: from,
       direction: "received",
       gave: youGive,
       received: youReceive,
+      pendingAt: opts.pending ? now : undefined,
     });
-    toast.success("Intercambio aplicado", {
-      description: "Lo tienes en el historial si necesitas deshacerlo.",
-    });
+    toast.success(
+      opts.pending
+        ? "Intercambio guardado como pendiente"
+        : "Intercambio aplicado",
+      {
+        description: opts.pending
+          ? "Aplícalo desde el Historial cuando os veáis."
+          : "Lo tienes en el historial si necesitas deshacerlo.",
+      },
+    );
     onClose();
   };
+
+  const handleAccept = () => acceptTrade({ pending: false });
+  const handleAcceptPending = () => acceptTrade({ pending: true });
 
   const handleCopyCode = async () => {
     if (!shareUrl) return;
@@ -103,7 +117,7 @@ export function TradeAcceptDialog({
           <DialogDescription>
             {already
               ? "Si quieres deshacerlo, hazlo desde el Historial."
-              : "Si lo aceptas, la app actualizará tu colección al instante. Podrás deshacerlo desde el Historial."}
+              : "Acéptalo y aplicamos tu colección al instante, o déjalo pendiente para aplicarlo desde el Historial cuando os veáis."}
           </DialogDescription>
         </DialogHeader>
 
@@ -164,9 +178,18 @@ export function TradeAcceptDialog({
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           {!already ? (
-            <Button onClick={handleAccept} className="w-full">
-              <Check className="mr-2 h-4 w-4" /> Aceptar y aplicar
-            </Button>
+            <>
+              <Button onClick={handleAccept} className="w-full">
+                <Check className="mr-2 h-4 w-4" /> Aceptar y aplicar
+              </Button>
+              <Button
+                onClick={handleAcceptPending}
+                variant="outline"
+                className="w-full"
+              >
+                <Clock className="mr-2 h-4 w-4" /> Aceptar como pendiente
+              </Button>
+            </>
           ) : null}
           <Button onClick={onClose} variant="ghost" className="w-full">
             {already ? "Cerrar" : (

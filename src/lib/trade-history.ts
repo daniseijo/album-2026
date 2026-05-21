@@ -4,6 +4,8 @@ import { useEffect, useSyncExternalStore } from "react";
 
 export type TradeDirection = "sent" | "received";
 
+export type TradeStatus = "applied" | "pending" | "undone";
+
 export type TradeHistoryEntry = {
   id: string;
   tradeId: string;
@@ -15,8 +17,17 @@ export type TradeHistoryEntry = {
   //   received: cromos que recibí (+1 a cada uno)
   gave: string[];
   received: string[];
+  // `pendingAt`: marcado al crear si todavía no se ha aplicado al
+  // álbum (lo aplicaremos cuando nos veamos con el amigo en persona).
+  pendingAt?: string;
   undoneAt?: string;
 };
+
+export function tradeStatus(e: TradeHistoryEntry): TradeStatus {
+  if (e.undoneAt) return "undone";
+  if (e.pendingAt) return "pending";
+  return "applied";
+}
 
 const STORAGE_KEY = "album-2026:trade-history:v1";
 const EMPTY: TradeHistoryEntry[] = Object.freeze(
@@ -104,6 +115,15 @@ export function markTradeUndone(id: string) {
 export function markTradeRedone(id: string) {
   const next = getSnapshot().map((e) =>
     e.id === id ? { ...e, undoneAt: undefined } : e,
+  );
+  memory = next;
+  write(next);
+  emit();
+}
+
+export function markTradeApplied(id: string) {
+  const next = getSnapshot().map((e) =>
+    e.id === id ? { ...e, pendingAt: undefined, undoneAt: undefined } : e,
   );
   memory = next;
   write(next);
