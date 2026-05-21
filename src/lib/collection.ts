@@ -126,6 +126,24 @@ function replaceAll(counts: Counts) {
   emit();
 }
 
+export function applyCollectionDelta(delta: Record<string, number>) {
+  applyDeltaInternal(delta);
+}
+
+function applyDeltaInternal(delta: Record<string, number>) {
+  const current = getSnapshotCounts();
+  const next: Counts = { ...current };
+  for (const [code, d] of Object.entries(delta)) {
+    if (!Number.isFinite(d) || d === 0) continue;
+    const v = (next[code] ?? 0) + d;
+    if (v <= 0) delete next[code];
+    else next[code] = v;
+  }
+  memoryCounts = next;
+  writeToStorage(next);
+  emit();
+}
+
 export function useCollection() {
   const counts = useSyncExternalStore(
     subscribe,
@@ -175,6 +193,10 @@ export function useCollection() {
     replaceAll(next);
   }, []);
 
+  const applyDelta = useCallback((delta: Record<string, number>) => {
+    applyDeltaInternal(delta);
+  }, []);
+
   return {
     counts,
     ownerName,
@@ -184,6 +206,7 @@ export function useCollection() {
     setExact,
     reset,
     importCounts,
+    applyDelta,
   };
 }
 

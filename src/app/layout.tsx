@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { IncomingShareHandler } from "@/components/incoming-share-handler";
+import { IncomingTradeHandler } from "@/components/incoming-trade-handler";
 import { HydrationGate } from "@/components/hydration-gate";
 
 const geistSans = Geist({
@@ -116,6 +117,7 @@ export default function RootLayout({
         <Toaster position="top-center" richColors />
         <ServiceWorkerRegister />
         <IncomingShareHandler />
+        <IncomingTradeHandler />
       </body>
     </html>
   );

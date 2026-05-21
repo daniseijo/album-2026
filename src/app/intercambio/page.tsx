@@ -6,6 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   ArrowDown,
@@ -13,9 +21,12 @@ import {
   Check,
   ClipboardPaste,
   Copy,
+  History,
   Link2,
+  RotateCcw,
   Send,
   FileUp,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -36,15 +47,37 @@ import {
   decodeSharePayload,
   extractSharePayload,
 } from "@/lib/share-url";
+import {
+  decodeTradePayload,
+  extractTradePayload,
+  newTradeId,
+  type TradePayload,
+} from "@/lib/trade-url";
+import {
+  addTradeEntry,
+  deleteTradeEntry,
+  markTradeRedone,
+  markTradeUndone,
+  newEntryId,
+  useTradeHistory,
+  type TradeHistoryEntry,
+} from "@/lib/trade-history";
 import { ShareLinkDialog } from "@/components/share-link-dialog";
+import { TradeAcceptDialog } from "@/components/trade-accept-dialog";
+import { TradeLinkDialog } from "@/components/trade-link-dialog";
 import { cn } from "@/lib/utils";
 
+type TabKey = "mine" | "friend" | "history";
+
 export default function IntercambioPage() {
-  const { counts, ownerName, setOwnerName } = useCollection();
+  const { counts, ownerName, setOwnerName, applyDelta } = useCollection();
+  const history = useTradeHistory();
 
   const [friend, setFriend] = useState<ExportPayload | null>(null);
-  const [tab, setTab] = useState<"mine" | "friend">("mine");
+  const [tab, setTab] = useState<TabKey>("mine");
   const [shareLinkOpen, setShareLinkOpen] = useState(false);
+  const [pendingIncomingTrade, setPendingIncomingTrade] =
+    useState<TradePayload | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const dupeCodes = useMemo(
@@ -144,10 +177,24 @@ export default function IntercambioPage() {
       });
       return;
     }
+    // Un enlace `#t=...` es un intercambio; `#d=...` es una colección.
+    // Probamos primero el intercambio porque es más específico.
+    const tradeRaw = extractTradePayload(text);
+    if (tradeRaw) {
+      try {
+        const payload = await decodeTradePayload(tradeRaw);
+        setPendingIncomingTrade(payload);
+      } catch (e) {
+        toast.error("Enlace de intercambio inválido", {
+          description: e instanceof Error ? e.message : undefined,
+        });
+      }
+      return;
+    }
     const payload = extractSharePayload(text);
     if (!payload) {
-      toast.error("No encontré un enlace de colección", {
-        description: "Copia primero el código desde el navegador o el QR.",
+      toast.error("No encontré un enlace", {
+        description: "Copia un enlace de colección o de intercambio.",
       });
       return;
     }
@@ -170,6 +217,52 @@ export default function IntercambioPage() {
         description: e instanceof Error ? e.message : undefined,
       });
     }
+  };
+
+  const handleSendTrade = (pido: string[], doy: string[]) => {
+    const id = newTradeId();
+    const payload: TradePayload = {
+      v: 1,
+      id,
+      from: ownerName?.trim() || undefined,
+      pido,
+      doy,
+    };
+    // Aplicamos en mi colección: doy = -1, pido = +1
+    const delta: Record<string, number> = {};
+    for (const code of doy) delta[code] = (delta[code] ?? 0) - 1;
+    for (const code of pido) delta[code] = (delta[code] ?? 0) + 1;
+    applyDelta(delta);
+    addTradeEntry({
+      id: newEntryId(),
+      tradeId: id,
+      at: new Date().toISOString(),
+      partner: friend?.ownerName?.trim() || "Amigo",
+      direction: "sent",
+      gave: doy,
+      received: pido,
+    });
+    return payload;
+  };
+
+  const handleUndoTrade = (entry: TradeHistoryEntry) => {
+    // Invertir el efecto: lo que entregué vuelve, lo que recibí se va.
+    const delta: Record<string, number> = {};
+    for (const code of entry.gave) delta[code] = (delta[code] ?? 0) + 1;
+    for (const code of entry.received) delta[code] = (delta[code] ?? 0) - 1;
+    applyDelta(delta);
+    markTradeUndone(entry.id);
+    toast.success("Intercambio deshecho");
+  };
+
+  const handleRedoTrade = (entry: TradeHistoryEntry) => {
+    // Si está deshecho y lo restauramos, re-aplicamos el efecto original.
+    const delta: Record<string, number> = {};
+    for (const code of entry.gave) delta[code] = (delta[code] ?? 0) - 1;
+    for (const code of entry.received) delta[code] = (delta[code] ?? 0) + 1;
+    applyDelta(delta);
+    markTradeRedone(entry.id);
+    toast.success("Intercambio restaurado");
   };
 
   const compare = useMemo(() => {
@@ -242,15 +335,23 @@ export default function IntercambioPage() {
 
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as "mine" | "friend")}
+          onValueChange={(v) => setTab(v as TabKey)}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="mine">Mi lista</TabsTrigger>
             <TabsTrigger value="friend">
               Con un amigo
               {friend ? (
                 <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-success" />
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              Historial
+              {history.length > 0 ? (
+                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-medium text-muted-foreground tabular-nums">
+                  {history.length}
+                </span>
               ) : null}
             </TabsTrigger>
           </TabsList>
@@ -356,10 +457,20 @@ export default function IntercambioPage() {
                     iCanGiveThem={compare.iCanGiveThem}
                     ownerName={ownerName}
                     friendName={friend.ownerName}
+                    onSendTrade={handleSendTrade}
                   />
                 ) : null}
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-4 space-y-3">
+            <TradeHistoryView
+              entries={history}
+              onPaste={handlePasteLink}
+              onUndo={handleUndoTrade}
+              onRedo={handleRedoTrade}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -370,6 +481,13 @@ export default function IntercambioPage() {
         counts={counts}
         ownerName={ownerName}
       />
+
+      {pendingIncomingTrade ? (
+        <TradeAcceptDialog
+          payload={pendingIncomingTrade}
+          onClose={() => setPendingIncomingTrade(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -389,14 +507,19 @@ function TradeBuilder({
   iCanGiveThem,
   ownerName,
   friendName,
+  onSendTrade,
 }: {
   iWantFromThem: TradeMatch[];
   iCanGiveThem: TradeMatch[];
   ownerName?: string;
   friendName?: string;
+  onSendTrade: (pido: string[], doy: string[]) => TradePayload;
 }) {
   const [pido, setPido] = useState<Set<string>>(() => new Set());
   const [doy, setDoy] = useState<Set<string>>(() => new Set());
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkPayload, setLinkPayload] = useState<TradePayload | null>(null);
 
   const togglePido = (code: string) =>
     setPido((s) => {
@@ -477,6 +600,26 @@ function TradeBuilder({
     await handleCopy();
   };
 
+  const handleSendLink = () => {
+    if (pidoArr.length === 0 && doyArr.length === 0) {
+      toast.error("Selecciona algún cromo primero");
+      return;
+    }
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmSend = () => {
+    const payload = onSendTrade(pidoArr, doyArr);
+    setConfirmOpen(false);
+    setLinkPayload(payload);
+    setLinkOpen(true);
+    setPido(new Set());
+    setDoy(new Set());
+    toast.success("Intercambio aplicado", {
+      description: "Comparte el enlace con tu amigo.",
+    });
+  };
+
   const friendShort = friendName ?? "tu amigo";
   const myShort = ownerName ?? "tú";
 
@@ -539,9 +682,9 @@ function TradeBuilder({
       />
 
       <div
-        className="sticky bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-10 rounded-2xl border bg-card/95 p-3 shadow-lg backdrop-blur"
+        className="sticky bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-10 space-y-2 rounded-2xl border bg-card/95 p-3 shadow-lg backdrop-blur"
       >
-        <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">
             <span className="text-warning-strong">{pidoArr.length}</span>{" "}
             <span className="text-muted-foreground">↔</span>{" "}
@@ -557,24 +700,74 @@ function TradeBuilder({
             </span>
           ) : null}
         </div>
+        <Button
+          onClick={handleSendLink}
+          className="h-10 w-full"
+          disabled={pidoArr.length === 0 && doyArr.length === 0}
+        >
+          <Link2 className="mr-2 h-4 w-4" /> Enviar como enlace
+        </Button>
         <div className="grid grid-cols-2 gap-2">
           <Button
             onClick={handleCopy}
             variant="outline"
-            className="h-10"
+            className="h-9"
             disabled={pidoArr.length === 0 && doyArr.length === 0}
           >
-            <Copy className="mr-2 h-4 w-4" /> Copiar
+            <Copy className="mr-2 h-3.5 w-3.5" /> Copiar texto
           </Button>
           <Button
             onClick={handleShare}
-            className="h-10"
+            variant="outline"
+            className="h-9"
             disabled={pidoArr.length === 0 && doyArr.length === 0}
           >
-            <Send className="mr-2 h-4 w-4" /> Enviar
+            <Send className="mr-2 h-3.5 w-3.5" /> Enviar texto
           </Button>
         </div>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aplicar y compartir intercambio</DialogTitle>
+            <DialogDescription>
+              Se actualizará tu colección al instante:
+              {" "}
+              {doyArr.length > 0
+                ? `entregarás ${doyArr.length} ${doyArr.length === 1 ? "cromo" : "cromos"}`
+                : "no entregas nada"}
+              {" "}y{" "}
+              {pidoArr.length > 0
+                ? `recibirás ${pidoArr.length} ${pidoArr.length === 1 ? "cromo" : "cromos"}`
+                : "no recibes nada"}
+              . Luego comparte el enlace con {friendShort}. Si la cosa no
+              acaba bien, puedes deshacerlo desde el Historial.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmSend}>
+              <Link2 className="mr-2 h-4 w-4" /> Aplicar y generar enlace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <TradeLinkDialog
+        open={linkOpen}
+        onOpenChange={(o) => {
+          setLinkOpen(o);
+          if (!o) setLinkPayload(null);
+        }}
+        payload={linkPayload}
+        friendName={friendName}
+      />
     </div>
   );
 }
@@ -832,9 +1025,9 @@ function DropZone({
             Carga la colección de tu amigo
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Pega el enlace que te ha enviado, arrastra su <code>.json</code>{" "}
-            o tócalo para seleccionarlo. La comparativa se calcula al
-            instante.
+            Pega el enlace que te ha enviado (colección o intercambio),
+            arrastra su <code>.json</code> o tócalo para seleccionarlo. La
+            comparativa se calcula al instante.
           </p>
         </div>
         <div className="grid w-full max-w-xs grid-cols-2 gap-2">
@@ -848,4 +1041,292 @@ function DropZone({
       </CardContent>
     </Card>
   );
+}
+
+function TradeHistoryView({
+  entries,
+  onPaste,
+  onUndo,
+  onRedo,
+}: {
+  entries: TradeHistoryEntry[];
+  onPaste: () => void;
+  onUndo: (entry: TradeHistoryEntry) => void;
+  onRedo: (entry: TradeHistoryEntry) => void;
+}) {
+  return (
+    <>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">
+                ¿Te llegó un enlace de intercambio?
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Pégalo aquí y revísalo antes de aceptarlo.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPaste}
+              className="shrink-0"
+            >
+              <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" /> Pegar enlace
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {entries.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
+            <History className="h-7 w-7 text-muted-foreground" />
+            <div className="text-sm font-medium">Aún no hay intercambios</div>
+            <p className="max-w-xs text-[11px] text-muted-foreground">
+              Cuando envíes un intercambio por enlace o aceptes uno, aparecerá
+              aquí con un botón para deshacerlo.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {entries.map((entry) => (
+            <TradeHistoryRow
+              key={entry.id}
+              entry={entry}
+              onUndo={() => onUndo(entry)}
+              onRedo={() => onRedo(entry)}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function TradeHistoryRow({
+  entry,
+  onUndo,
+  onRedo,
+}: {
+  entry: TradeHistoryEntry;
+  onUndo: () => void;
+  onRedo: () => void;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const undone = !!entry.undoneAt;
+  const when = useRelativeTime(entry.at);
+  return (
+    <Card className={cn(undone && "opacity-60")}>
+      <CardContent className="space-y-2 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-sm font-semibold">
+              <span
+                className={cn(
+                  "inline-flex h-5 items-center gap-1 rounded-full px-1.5 text-[10px] font-medium uppercase tracking-wide",
+                  entry.direction === "sent"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-success-soft text-success",
+                )}
+              >
+                {entry.direction === "sent" ? "Enviado" : "Recibido"}
+              </span>
+              <span className="truncate">{entry.partner}</span>
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              {when}
+              {undone ? " · deshecho" : ""}
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-1">
+            {!undone ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setConfirmOpen(true)}
+                className="h-7 text-xs"
+              >
+                <RotateCcw className="mr-1 h-3 w-3" /> Deshacer
+              </Button>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onRedo}
+                  className="h-7 text-xs"
+                >
+                  <RotateCcw className="mr-1 h-3 w-3 -scale-x-100" /> Restaurar
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  aria-label="Eliminar del historial"
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        <HistoryCodeLine
+          label="Diste"
+          tone="amber"
+          icon={<ArrowUp className="h-3 w-3" />}
+          codes={entry.gave}
+        />
+        <HistoryCodeLine
+          label="Recibiste"
+          tone="emerald"
+          icon={<ArrowDown className="h-3 w-3" />}
+          codes={entry.received}
+        />
+      </CardContent>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Deshacer este intercambio?</DialogTitle>
+            <DialogDescription>
+              Tu colección volverá al estado anterior:
+              {" "}
+              {entry.gave.length > 0
+                ? `te devolveremos ${entry.gave.length} ${entry.gave.length === 1 ? "cromo" : "cromos"}`
+                : "nada que devolver"}
+              {" "}y{" "}
+              {entry.received.length > 0
+                ? `quitaremos ${entry.received.length} ${entry.received.length === 1 ? "cromo" : "cromos"} que recibiste`
+                : "nada que quitar"}
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                onUndo();
+                setConfirmOpen(false);
+              }}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" /> Deshacer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Eliminar del historial?</DialogTitle>
+            <DialogDescription>
+              Lo borraremos de la lista. Como ya está deshecho, tu colección
+              no cambia. Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                deleteTradeEntry(entry.id);
+                setConfirmDeleteOpen(false);
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function HistoryCodeLine({
+  label,
+  tone,
+  icon,
+  codes,
+}: {
+  label: string;
+  tone: "emerald" | "amber";
+  icon: React.ReactNode;
+  codes: string[];
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+          tone === "emerald"
+            ? "bg-success-soft text-success"
+            : "bg-warning-soft text-warning-strong",
+        )}
+      >
+        {icon}
+        {label}
+        <span className="tabular-nums opacity-70">({codes.length})</span>
+      </span>
+      {codes.length === 0 ? (
+        <span className="text-[11px] text-muted-foreground">—</span>
+      ) : (
+        codes.map((code) => {
+          const s = getStickerByCode(code);
+          return (
+            <span
+              key={code}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] tabular-nums",
+                tone === "emerald"
+                  ? "border-success/30 bg-success-soft/30"
+                  : "border-warning/30 bg-warning-soft/30",
+              )}
+              title={s ? `${s.sectionName} · ${s.label}` : undefined}
+            >
+              {s?.flag ? (
+                <span className="text-[12px] leading-none">{s.flag}</span>
+              ) : null}
+              <span className="font-semibold">{code}</span>
+            </span>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function useRelativeTime(iso: string): string {
+  // Re-render perezoso: como las entradas se ordenan por fecha de creación
+  // y la página entera se vuelve a renderizar a menudo, no hace falta un
+  // intervalo. Si hace falta más exactitud puntual, ya se actualizará al
+  // siguiente render.
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const diffMs = Date.now() - date.getTime();
+  const sec = Math.round(diffMs / 1000);
+  if (sec < 60) return "ahora mismo";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `hace ${min} min`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `hace ${hr} h`;
+  const day = Math.round(hr / 24);
+  if (day < 7) return `hace ${day} ${day === 1 ? "día" : "días"}`;
+  return date.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : "2-digit",
+  });
 }
