@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -71,6 +71,11 @@ function TeamSheetBody({ section }: { section: Section }) {
     else setExact(code, c + 1);
   };
 
+  const onTileLongPress = (code: string) => {
+    const c = counts[code] ?? 0;
+    setExact(code, Math.max(0, c - 1));
+  };
+
   return (
     <>
       <SheetHeader className="px-5 pt-5 pb-3">
@@ -104,8 +109,11 @@ function TeamSheetBody({ section }: { section: Section }) {
         </button>
       </SheetHeader>
 
-      <div className="px-5 pb-3">
+      <div className="px-5 pb-3 space-y-1">
         <Legend erase={erase} />
+        <p className="text-[11px] text-muted-foreground">
+          Toca para añadir · mantén pulsado para restar uno
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-5">
@@ -121,6 +129,7 @@ function TeamSheetBody({ section }: { section: Section }) {
               sticker={s}
               count={counts[s.code] ?? 0}
               onTap={() => onTileTap(s.code)}
+              onLongPress={() => onTileLongPress(s.code)}
               erase={erase}
             />
           ))}
@@ -216,15 +225,19 @@ function FilterPicker({
   );
 }
 
+const LONG_PRESS_MS = 450;
+
 function StickerTile({
   sticker,
   count,
   onTap,
+  onLongPress,
   erase,
 }: {
   sticker: Sticker;
   count: number;
   onTap: () => void;
+  onLongPress: () => void;
   erase: boolean;
 }) {
   const owned = count >= 1;
@@ -233,13 +246,57 @@ function StickerTile({
 
   const code = formatStickerCode(sticker);
 
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressedRef = useRef(false);
+
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const startPress = () => {
+    longPressedRef.current = false;
+    if (count === 0) return;
+    clearTimer();
+    timerRef.current = setTimeout(() => {
+      longPressedRef.current = true;
+      onLongPress();
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate(20);
+      }
+    }, LONG_PRESS_MS);
+  };
+
+  const endPress = () => {
+    clearTimer();
+  };
+
+  const handleClick = () => {
+    // A long press already handled this interaction (it decremented the
+    // count), so swallow the click that fires on pointer release.
+    if (longPressedRef.current) {
+      longPressedRef.current = false;
+      return;
+    }
+    onTap();
+  };
+
+  useEffect(() => () => clearTimer(), []);
+
   return (
     <button
       type="button"
-      onClick={onTap}
+      onClick={handleClick}
+      onPointerDown={startPress}
+      onPointerUp={endPress}
+      onPointerLeave={endPress}
+      onPointerCancel={endPress}
+      onContextMenu={(e) => e.preventDefault()}
       disabled={erase && count === 0}
       className={cn(
-        "group relative flex aspect-square flex-col items-center justify-center rounded-lg border bg-card text-center transition-all active:scale-[0.95] disabled:opacity-40",
+        "group relative flex aspect-square flex-col items-center justify-center rounded-lg border bg-card text-center transition-all select-none active:scale-[0.95] disabled:opacity-40",
         repe && "bg-warning-soft border-warning/40",
         owned && !repe && "bg-success-soft/70 border-success/40",
         !owned && "bg-card",
