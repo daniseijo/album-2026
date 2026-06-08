@@ -248,6 +248,7 @@ function StickerTile({
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressedRef = useRef(false);
+  const [pressing, setPressing] = useState(false);
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -260,8 +261,10 @@ function StickerTile({
     longPressedRef.current = false;
     if (count === 0) return;
     clearTimer();
+    setPressing(true);
     timerRef.current = setTimeout(() => {
       longPressedRef.current = true;
+      setPressing(false);
       onLongPress();
       if (typeof navigator !== "undefined" && navigator.vibrate) {
         navigator.vibrate(20);
@@ -271,6 +274,7 @@ function StickerTile({
 
   const endPress = () => {
     clearTimer();
+    setPressing(false);
   };
 
   const handleClick = () => {
@@ -301,18 +305,29 @@ function StickerTile({
         owned && !repe && "bg-success-soft/70 border-success/40",
         !owned && "bg-card",
         erase && owned && "ring-1 ring-destructive/40",
+        pressing && "ring-1 ring-destructive/60",
       )}
     >
       <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 origin-bottom overflow-hidden rounded-lg bg-destructive/35"
+        style={{
+          transform: pressing ? "scaleY(1)" : "scaleY(0)",
+          transitionProperty: "transform",
+          transitionTimingFunction: "linear",
+          transitionDuration: pressing ? `${LONG_PRESS_MS}ms` : "150ms",
+        }}
+      />
+      <span
         className={cn(
-          "text-[11px] font-bold tabular-nums leading-tight",
+          "relative z-10 text-[11px] font-bold tabular-nums leading-tight",
           !owned && "text-muted-foreground",
         )}
       >
         {code}
       </span>
       {repe ? (
-        <span className="absolute bottom-0.5 right-0.5 rounded bg-warning-strong px-1 text-[9px] font-semibold leading-tight text-white">
+        <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-warning-strong px-1 text-[9px] font-semibold leading-tight text-white">
           ×{dupes}
         </span>
       ) : null}
