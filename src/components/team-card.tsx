@@ -2,27 +2,44 @@
 
 import { Section, STICKER_BY_NUMBER } from "@/lib/album";
 import { Counts } from "@/lib/collection";
+import { getUpdateEntry } from "@/lib/update-set";
 import { cn } from "@/lib/utils";
+import { RefreshCw } from "lucide-react";
 
 export function TeamCard({
   section,
   counts,
   onClick,
   active,
+  updateOwned,
+  substitute = false,
+  showUpdates = false,
 }: {
   section: Section;
   counts: Counts;
   onClick: () => void;
   active?: boolean;
+  updateOwned?: Counts;
+  substitute?: boolean;
+  showUpdates?: boolean;
 }) {
   const total = section.range[1] - section.range[0] + 1;
-  const dots: ("missing" | "owned" | "dupe")[] = [];
+  const dots: ("missing" | "owned" | "dupe" | "update")[] = [];
   let owned = 0;
+  let updatesInTeam = 0;
   for (let n = section.range[0]; n <= section.range[1]; n++) {
     const s = STICKER_BY_NUMBER.get(n);
-    const c = s ? (counts[s.code] ?? 0) : 0;
-    if (c === 0) dots.push("missing");
-    else if (c === 1) {
+    const code = s?.code;
+    const c = code ? (counts[code] ?? 0) : 0;
+    const hasUpd = showUpdates && code ? Boolean(getUpdateEntry(code)) : false;
+    if (hasUpd) updatesInTeam += 1;
+    const viaUpdate =
+      substitute && code ? (updateOwned?.[code] ?? 0) >= 1 : false;
+    if (c === 0 && !viaUpdate) dots.push("missing");
+    else if (c === 0 && viaUpdate) {
+      dots.push("update");
+      owned += 1;
+    } else if (c === 1) {
       dots.push("owned");
       owned += 1;
     } else {
@@ -69,6 +86,7 @@ export function TeamCard({
                   d === "missing" && "bg-primary-foreground/15",
                   d === "owned" && "bg-success",
                   d === "dupe" && "bg-warning",
+                  d === "update" && "bg-update",
                 )}
               />
             ))}
@@ -105,6 +123,12 @@ export function TeamCard({
       ) : null}
       <div className="flex w-full items-center gap-2">
         <span className="text-2xl leading-none">{section.flag}</span>
+        {updatesInTeam > 0 ? (
+          <span className="ml-auto inline-flex items-center gap-0.5 rounded-full bg-update/10 px-1.5 py-0.5 text-[10px] font-semibold text-update">
+            <RefreshCw className="h-2.5 w-2.5" strokeWidth={2.6} />
+            {updatesInTeam}
+          </span>
+        ) : null}
       </div>
       <div className="min-w-0 w-full">
         <div className="truncate text-sm font-semibold leading-tight">
@@ -123,6 +147,7 @@ export function TeamCard({
               d === "missing" && "bg-border",
               d === "owned" && "bg-success",
               d === "dupe" && "bg-warning-strong",
+              d === "update" && "bg-update",
             )}
           />
         ))}

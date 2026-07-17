@@ -4,18 +4,24 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { GROUPS, SECTIONS, Section } from "@/lib/album";
-import { summarize, useCollection } from "@/lib/collection";
+import { summarize, summarizeUpdate, useCollection } from "@/lib/collection";
 import { TeamCard } from "@/components/team-card";
 import { TeamSheet } from "@/components/team-sheet";
 import { AlbumCompleteCelebration } from "@/components/album-complete-celebration";
+import { ActivateUpdateDialog } from "@/components/activate-update-dialog";
+import { toast } from "sonner";
 import {
   ArrowDownAZ,
   ArrowLeftRight,
   BookOpen,
+  ChevronRight,
+  RefreshCw,
   Search,
   Sparkles,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TOTAL_UPDATE } from "@/lib/update-set";
 
 type GroupFilter = "all" | "fwc" | (typeof GROUPS)[number];
 type SortMode = "album" | "alpha";
@@ -29,15 +35,28 @@ function normalize(s: string) {
 }
 
 export default function HomePage() {
-  const { counts, ownerName } = useCollection();
-  const totals = summarize(counts);
+  const {
+    counts,
+    ownerName,
+    hasUpdateSet,
+    updateMode,
+    updateOwned,
+    updateBannerDismissed,
+    enableUpdateSet,
+    dismissUpdateBanner,
+  } = useCollection();
+  const substitute = hasUpdateSet && updateMode === "substitute";
+  const totals = summarize(counts, { updateOwned, substitute });
   const complete = totals.missing === 0;
+  const updateTotals = summarizeUpdate(updateOwned);
 
   const [group, setGroup] = useState<GroupFilter>("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("album");
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [activateOpen, setActivateOpen] = useState(false);
+  const showUpdateBanner = !hasUpdateSet && !updateBannerDismissed;
 
   const sections = useMemo(() => {
     const q = normalize(query);
@@ -99,6 +118,12 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
+        {showUpdateBanner ? (
+          <UpdateAnnounceBanner
+            onActivate={() => setActivateOpen(true)}
+            onDismiss={dismissUpdateBanner}
+          />
+        ) : null}
         {complete ? <CompleteBanner ownerName={ownerName} /> : null}
         <StatsRow
           owned={totals.owned}
@@ -107,6 +132,28 @@ export default function HomePage() {
           percent={totals.percent}
           complete={complete}
         />
+
+        {hasUpdateSet ? (
+          <Link
+            href="/update-set"
+            prefetch
+            className="flex items-center gap-3 rounded-2xl border border-update/30 bg-update/5 px-4 py-3 transition-colors hover:bg-update/10"
+          >
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-update/15 text-update">
+              <RefreshCw className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold leading-tight">
+                Update set
+              </span>
+              <span className="block text-[11px] text-muted-foreground">
+                {updateTotals.owned}/{updateTotals.total} anotados ·{" "}
+                {updateMode === "substitute" ? "sustituyen" : "añadido"}
+              </span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
+        ) : null}
 
         <div className="flex flex-wrap gap-1.5">
           <GroupChip
@@ -187,6 +234,9 @@ export default function HomePage() {
                   section={s}
                   counts={counts}
                   onClick={() => openTeam(s)}
+                  updateOwned={updateOwned}
+                  substitute={substitute}
+                  showUpdates={hasUpdateSet}
                 />
               </div>
             ))}
@@ -204,6 +254,62 @@ export default function HomePage() {
       />
 
       <AlbumCompleteCelebration complete={complete} ownerName={ownerName} />
+
+      <ActivateUpdateDialog
+        open={activateOpen}
+        onOpenChange={setActivateOpen}
+        onConfirm={(mode, fillAll) => {
+          enableUpdateSet({ mode, fillAll });
+          setActivateOpen(false);
+          toast.success(
+            fillAll
+              ? `Update set activado · ${TOTAL_UPDATE} marcados`
+              : "Update set activado",
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+function UpdateAnnounceBanner({
+  onActivate,
+  onDismiss,
+}: {
+  onActivate: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-update/30 bg-update/5 p-4">
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Descartar"
+        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-update/10 hover:text-foreground"
+      >
+        <X className="h-4 w-4" />
+      </button>
+      <div className="flex items-start gap-3 pr-7">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-update/15 text-update">
+          <RefreshCw className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold leading-tight">
+            ¡Ya está el Update Set!
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Panini actualizó {TOTAL_UPDATE} cromos tras las listas definitivas.
+            Si tienes el pack, márcalo aquí.
+          </p>
+          <button
+            type="button"
+            onClick={onActivate}
+            className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-update px-3.5 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Activar update set
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

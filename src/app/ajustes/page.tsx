@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -18,20 +20,48 @@ import {
   buildExport,
   parseImport,
   summarize,
+  summarizeUpdate,
   useCollection,
 } from "@/lib/collection";
 import { TOTAL_STICKERS } from "@/lib/album";
-import { Download, Trash2, Upload } from "lucide-react";
+import { TOTAL_UPDATE } from "@/lib/update-set";
+import { ActivateUpdateDialog } from "@/components/activate-update-dialog";
+import { cn } from "@/lib/utils";
+import {
+  ChevronRight,
+  Download,
+  RefreshCw,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 export default function AjustesPage() {
-  const { counts, ownerName, setOwnerName, importCounts, reset } =
-    useCollection();
+  const {
+    counts,
+    ownerName,
+    setOwnerName,
+    importCounts,
+    importUpdate,
+    reset,
+    hasUpdateSet,
+    updateMode,
+    updateOwned,
+    enableUpdateSet,
+    disableUpdateSet,
+    setUpdateMode,
+  } = useCollection();
   const totals = summarize(counts);
+  const updateTotals = summarizeUpdate(updateOwned);
   const fileRef = useRef<HTMLInputElement>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [activateOpen, setActivateOpen] = useState(false);
 
   const handleExport = () => {
-    const payload = buildExport(counts, ownerName);
+    const payload = buildExport(counts, ownerName, {
+      hasUpdateSet,
+      updateMode,
+      updateOwned,
+    });
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
@@ -53,6 +83,11 @@ export default function AjustesPage() {
       const data = parseImport(text);
       importCounts(data.counts);
       if (data.ownerName) setOwnerName(data.ownerName);
+      importUpdate({
+        hasUpdateSet: data.hasUpdateSet,
+        updateMode: data.updateMode,
+        updateOwned: data.updateOwned,
+      });
       toast.success("Colección importada");
     } catch (e) {
       toast.error("Archivo inválido", {
@@ -118,6 +153,61 @@ export default function AjustesPage() {
           </CardContent>
         </Card>
 
+        <Card className={hasUpdateSet ? "border-update/40" : undefined}>
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-sm font-semibold">
+                  <RefreshCw className="h-4 w-4 text-update" /> Update set
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {TOTAL_UPDATE} cromos que Panini actualizó tras las listas
+                  definitivas. Actívalo solo si compraste el pack.
+                </p>
+              </div>
+              <Switch
+                checked={hasUpdateSet}
+                onCheckedChange={(v) => {
+                  if (v) setActivateOpen(true);
+                  else disableUpdateSet();
+                }}
+              />
+            </div>
+
+            {hasUpdateSet ? (
+              <>
+                <div className="rounded-lg bg-update/5 p-3">
+                  <div className="text-xs font-medium">
+                    {updateTotals.owned}/{updateTotals.total} anotados
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <ModePill
+                      active={updateMode === "substitute"}
+                      onClick={() => setUpdateMode("substitute")}
+                      title="Sustituyen"
+                      hint="Completan el slot del original"
+                    />
+                    <ModePill
+                      active={updateMode === "addition"}
+                      onClick={() => setUpdateMode("addition")}
+                      title="Añadido"
+                      hint="Colección aparte"
+                    />
+                  </div>
+                </div>
+                <Link
+                  href="/update-set"
+                  prefetch
+                  className="flex items-center justify-between rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
+                >
+                  Ver y marcar los {TOTAL_UPDATE} cromos
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+
         <Card className="border-destructive/30">
           <CardContent className="space-y-2 p-4">
             <div className="text-sm font-semibold text-destructive">
@@ -171,9 +261,61 @@ export default function AjustesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ActivateUpdateDialog
+        open={activateOpen}
+        onOpenChange={setActivateOpen}
+        onConfirm={(mode, fillAll) => {
+          enableUpdateSet({ mode, fillAll });
+          setActivateOpen(false);
+          toast.success(
+            fillAll
+              ? `Update set activado · ${TOTAL_UPDATE} marcados`
+              : "Update set activado",
+          );
+        }}
+      />
     </div>
   );
 }
+
+function ModePill({
+  active,
+  onClick,
+  title,
+  hint,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex-1 rounded-lg border px-2.5 py-2 text-left transition-colors",
+        active
+          ? "border-update bg-update/10"
+          : "border-border bg-background hover:bg-accent",
+      )}
+    >
+      <div
+        className={cn(
+          "text-xs font-semibold",
+          active ? "text-update" : "text-foreground",
+        )}
+      >
+        {title}
+      </div>
+      <div className="text-[10px] leading-tight text-muted-foreground">
+        {hint}
+      </div>
+    </button>
+  );
+}
+
 
 function slug(s: string) {
   return s

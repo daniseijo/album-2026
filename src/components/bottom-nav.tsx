@@ -2,17 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Layers, ArrowLeftRight, Settings } from "lucide-react";
+import { Layers, ArrowLeftRight, RefreshCw, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCollection } from "@/lib/collection";
 
-const items = [
+const baseItems = [
   { href: "/", label: "Cromos", icon: Layers },
   { href: "/intercambio", label: "Intercambio", icon: ArrowLeftRight },
-  { href: "/ajustes", label: "Ajustes", icon: Settings },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { hasUpdateSet } = useCollection();
+  const items = [
+    ...baseItems,
+    ...(hasUpdateSet
+      ? [{ href: "/update-set", label: "Update", icon: RefreshCw }]
+      : []),
+    { href: "/ajustes", label: "Ajustes", icon: Settings },
+  ];
   return (
     <nav
       className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"

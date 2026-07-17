@@ -9,9 +9,18 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Section, STICKERS, Sticker, formatStickerCode } from "@/lib/album";
-import { useCollection } from "@/lib/collection";
+import { isSlotOwned, useCollection } from "@/lib/collection";
+import { getUpdateEntry } from "@/lib/update-set";
 import { cn } from "@/lib/utils";
-import { Eraser, Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Eraser, Minus, Plus, RefreshCw } from "lucide-react";
 
 type Filter = "all" | "missing" | "owned" | "dupes";
 
@@ -24,26 +33,49 @@ export function TeamSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
+
   return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      disablePointerDismissal
-    >
-      <SheetContent
-        side="bottom"
-        className="rounded-t-3xl p-0 max-h-[92dvh] flex flex-col gap-0"
-      >
-        {section ? <TeamSheetBody key={section.id} section={section} /> : null}
-      </SheetContent>
-    </Sheet>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange} disablePointerDismissal>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl p-0 max-h-[92dvh] flex flex-col gap-0"
+        >
+          {section ? (
+            <TeamSheetBody
+              key={section.id}
+              section={section}
+              onOpenDetail={setDetailCode}
+            />
+          ) : null}
+        </SheetContent>
+      </Sheet>
+
+      <UpdateDetailDialog
+        code={detailCode}
+        onOpenChange={(o) => {
+          if (!o) setDetailCode(null);
+        }}
+      />
+    </>
   );
 }
 
-function TeamSheetBody({ section }: { section: Section }) {
-  const { counts, setExact } = useCollection();
+function TeamSheetBody({
+  section,
+  onOpenDetail,
+}: {
+  section: Section;
+  onOpenDetail: (code: string) => void;
+}) {
+  const { counts, setExact, hasUpdateSet, updateMode, updateOwned } =
+    useCollection();
   const [erase, setErase] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
+
+  const substitute = hasUpdateSet && updateMode === "substitute";
+  const slotOpts = { updateOwned, substitute };
 
   const stickers = useMemo<Sticker[]>(() => {
     return STICKERS.filter(
@@ -51,16 +83,22 @@ function TeamSheetBody({ section }: { section: Section }) {
     );
   }, [section]);
 
-  const owned = stickers.filter((s) => (counts[s.code] ?? 0) >= 1).length;
+  const owned = stickers.filter((s) =>
+    isSlotOwned(s.code, counts, slotOpts),
+  ).length;
   const dupes = stickers.reduce(
     (acc, s) => acc + Math.max(0, (counts[s.code] ?? 0) - 1),
     0,
   );
+  const updatesInSection = hasUpdateSet
+    ? stickers.filter((s) => getUpdateEntry(s.code)).length
+    : 0;
 
   const visible = stickers.filter((s) => {
     const c = counts[s.code] ?? 0;
-    if (filter === "owned" && c === 0) return false;
-    if (filter === "missing" && c > 0) return false;
+    const slotOwned = isSlotOwned(s.code, counts, slotOpts);
+    if (filter === "owned" && !slotOwned) return false;
+    if (filter === "missing" && slotOwned) return false;
     if (filter === "dupes" && c <= 1) return false;
     return true;
   });
@@ -90,6 +128,12 @@ function TeamSheetBody({ section }: { section: Section }) {
             <SheetDescription className="text-xs">
               {owned}/{stickers.length} cromos
               {dupes > 0 ? ` · ${dupes} repes` : ""}
+              {updatesInSection > 0 ? (
+                <span className="ml-1 inline-flex items-center gap-0.5 font-medium text-update">
+                  · <RefreshCw className="h-3 w-3" />
+                  {updatesInSection}
+                </span>
+              ) : null}
             </SheetDescription>
           </div>
         </div>
@@ -123,16 +167,23 @@ function TeamSheetBody({ section }: { section: Section }) {
             erase && "[&_button]:cursor-not-allowed",
           )}
         >
-          {visible.map((s) => (
-            <StickerTile
-              key={s.code}
-              sticker={s}
-              count={counts[s.code] ?? 0}
-              onTap={() => onTileTap(s.code)}
-              onLongPress={() => onTileLongPress(s.code)}
-              erase={erase}
-            />
-          ))}
+          {visible.map((s) => {
+            const hasUpd = hasUpdateSet && Boolean(getUpdateEntry(s.code));
+            return (
+              <StickerTile
+                key={s.code}
+                sticker={s}
+                count={counts[s.code] ?? 0}
+                onTap={() => onTileTap(s.code)}
+                onLongPress={() => onTileLongPress(s.code)}
+                erase={erase}
+                hasUpdate={hasUpd}
+                updateHave={(updateOwned[s.code] ?? 0) >= 1}
+                substitute={substitute}
+                onMarkerTap={() => onOpenDetail(s.code)}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -233,16 +284,28 @@ function StickerTile({
   onTap,
   onLongPress,
   erase,
+  hasUpdate,
+  updateHave,
+  substitute,
+  onMarkerTap,
 }: {
   sticker: Sticker;
   count: number;
   onTap: () => void;
   onLongPress: () => void;
   erase: boolean;
+  hasUpdate: boolean;
+  updateHave: boolean;
+  substitute: boolean;
+  onMarkerTap: () => void;
 }) {
-  const owned = count >= 1;
+  const hasOriginal = count >= 1;
   const dupes = Math.max(0, count - 1);
   const repe = dupes > 0;
+  // En modo sustituir, tener el actualizado también da el slot por conseguido.
+  const owned = hasOriginal || (substitute && updateHave);
+  // Slot completado únicamente con el jugador del update set.
+  const onlyViaUpdate = !hasOriginal && substitute && updateHave;
 
   const code = formatStickerCode(sticker);
 
@@ -290,47 +353,215 @@ function StickerTile({
   useEffect(() => () => clearTimer(), []);
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      onPointerDown={startPress}
-      onPointerUp={endPress}
-      onPointerLeave={endPress}
-      onPointerCancel={endPress}
-      onContextMenu={(e) => e.preventDefault()}
-      disabled={erase && count === 0}
-      className={cn(
-        "group relative flex aspect-square flex-col items-center justify-center rounded-lg border bg-card text-center transition-all select-none active:scale-[0.95] disabled:opacity-40",
-        repe && "bg-warning-soft border-warning/40",
-        owned && !repe && "bg-success-soft/70 border-success/40",
-        !owned && "bg-card",
-        erase && owned && "ring-1 ring-destructive/40",
-        pressing && "ring-1 ring-destructive/60",
-      )}
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 origin-bottom overflow-hidden rounded-lg bg-destructive/35"
-        style={{
-          transform: pressing ? "scaleY(1)" : "scaleY(0)",
-          transitionProperty: "transform",
-          transitionTimingFunction: "linear",
-          transitionDuration: pressing ? `${LONG_PRESS_MS}ms` : "150ms",
-        }}
-      />
-      <span
+    <div className="relative">
+      <button
+        type="button"
+        onClick={handleClick}
+        onPointerDown={startPress}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
+        onContextMenu={(e) => e.preventDefault()}
+        disabled={erase && count === 0}
         className={cn(
-          "relative z-10 text-[11px] font-bold tabular-nums leading-tight",
-          !owned && "text-muted-foreground",
+          "group relative flex aspect-square w-full flex-col items-center justify-center rounded-lg border bg-card text-center transition-all select-none active:scale-[0.95] disabled:opacity-40",
+          repe && "bg-warning-soft border-warning/40",
+          owned &&
+            !repe &&
+            !onlyViaUpdate &&
+            "bg-success-soft/70 border-success/40",
+          onlyViaUpdate && "bg-update-soft border-update/40",
+          !owned && "bg-card",
+          erase && owned && "ring-1 ring-destructive/40",
+          pressing && "ring-1 ring-destructive/60",
         )}
       >
-        {code}
-      </span>
-      {repe ? (
-        <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-warning-strong px-1 text-[9px] font-semibold leading-tight text-white">
-          ×{dupes}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 origin-bottom overflow-hidden rounded-lg bg-destructive/35"
+          style={{
+            transform: pressing ? "scaleY(1)" : "scaleY(0)",
+            transitionProperty: "transform",
+            transitionTimingFunction: "linear",
+            transitionDuration: pressing ? `${LONG_PRESS_MS}ms` : "150ms",
+          }}
+        />
+        <span
+          className={cn(
+            "z-10 font-bold tabular-nums leading-tight",
+            hasUpdate
+              ? "absolute inset-x-0 top-[15%] text-center text-[10px] sm:top-1/2 sm:-translate-y-1/2 sm:text-[11px]"
+              : "relative text-[11px]",
+            !owned && "text-muted-foreground",
+          )}
+        >
+          {code}
         </span>
+        {repe ? (
+          <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-warning-strong px-1 text-[9px] font-semibold leading-tight text-white">
+            ×{dupes}
+          </span>
+        ) : null}
+      </button>
+      {hasUpdate ? (
+        <button
+          type="button"
+          onClick={onMarkerTap}
+          aria-label="Ver jugador actualizado"
+          className={cn(
+            "absolute left-1/2 top-[66%] z-20 inline-flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm transition-transform active:scale-90 sm:top-[78%] sm:h-7 sm:w-14 sm:rounded-full",
+            updateHave
+              ? "border-update bg-update text-white"
+              : "border-update/60 bg-background text-update",
+          )}
+        >
+          <RefreshCw className="h-4 w-4" strokeWidth={2.6} />
+        </button>
       ) : null}
-    </button>
+    </div>
+  );
+}
+
+function UpdateDetailDialog({
+  code,
+  onOpenChange,
+}: {
+  code: string | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const {
+    counts,
+    updateMode,
+    hasUpdateSet,
+    updateOwned,
+    increment,
+    decrement,
+    setUpdateOwned,
+  } = useCollection();
+
+  const entry = code ? getUpdateEntry(code) : undefined;
+  const open = Boolean(code && entry);
+  const substitute = hasUpdateSet && updateMode === "substitute";
+  const originalCount = code ? (counts[code] ?? 0) : 0;
+  const dupes = Math.max(0, originalCount - 1);
+  const have = code ? (updateOwned[code] ?? 0) >= 1 : false;
+
+  const originalStatus =
+    originalCount === 0
+      ? "No lo tienes"
+      : dupes === 0
+        ? "Pegado"
+        : `Pegado · ${dupes} repe${dupes > 1 ? "s" : ""}`;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {entry ? (
+        <DialogContent
+          className="max-w-sm gap-3"
+          overlayClassName="bg-black/45 supports-backdrop-filter:backdrop-blur-sm"
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-update/10 px-1.5 py-0.5 text-xs font-semibold text-update">
+                <RefreshCw className="h-3 w-3" /> {entry.code}
+              </span>
+              Update set
+            </DialogTitle>
+            <DialogDescription>
+              Este cromo cambió respecto al álbum original.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Original */}
+          <div className="rounded-lg border bg-muted/40 p-3">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Original
+            </div>
+            <div className="mt-0.5 flex items-center justify-between gap-3">
+              <div className="min-w-0 truncate text-sm font-medium line-through decoration-muted-foreground/50">
+                {entry.originalName}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Stepper
+                  onDec={() => code && decrement(code)}
+                  onInc={() => code && increment(code)}
+                  count={originalCount}
+                  decDisabled={originalCount === 0}
+                />
+              </div>
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              {originalStatus}
+            </div>
+          </div>
+
+          {/* Actualizado */}
+          <div className="rounded-lg border border-update/40 bg-update/5 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-update">
+                  Actualizado · {entry.position}
+                </div>
+                <div className="truncate text-sm font-semibold">
+                  {entry.replacementName}
+                </div>
+              </div>
+              <label className="flex shrink-0 items-center gap-2">
+                <span className="text-xs font-medium">Lo tengo</span>
+                <Switch
+                  checked={have}
+                  onCheckedChange={(v) =>
+                    code && setUpdateOwned(code, Boolean(v))
+                  }
+                />
+              </label>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            {substitute
+              ? "Modo sustituir: con el original o el actualizado, el cromo cuenta como conseguido."
+              : "Modo añadido: el actualizado cuenta aparte, no altera el total del álbum."}
+          </p>
+        </DialogContent>
+      ) : null}
+    </Dialog>
+  );
+}
+
+function Stepper({
+  onDec,
+  onInc,
+  count,
+  decDisabled,
+}: {
+  onDec: () => void;
+  onInc: () => void;
+  count: number;
+  decDisabled: boolean;
+}) {
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onDec}
+        disabled={decDisabled}
+        aria-label="Quitar uno"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
+      >
+        <Minus className="h-3.5 w-3.5" />
+      </button>
+      <span className="w-4 text-center text-sm font-bold tabular-nums">
+        {count}
+      </span>
+      <button
+        type="button"
+        onClick={onInc}
+        aria-label="Añadir uno"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-success/50 bg-success-soft/50 text-success transition-colors hover:bg-success-soft"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
