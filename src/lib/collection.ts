@@ -35,6 +35,7 @@ const NAME_KEY = "album-2026:owner-name:v1";
 const HAS_UPDATE_KEY = "album-2026:has-update-set:v1";
 const UPDATE_MODE_KEY = "album-2026:update-mode:v1";
 const UPDATE_OWNED_KEY = "album-2026:update-owned:v1";
+const UPDATE_BANNER_KEY = "album-2026:update-banner-dismissed:v1";
 
 const EMPTY_COUNTS: Counts = Object.freeze({}) as Counts;
 const DEFAULT_UPDATE_MODE: UpdateMode = "addition";
@@ -45,6 +46,7 @@ let memoryName: string | null = null;
 let memoryHasUpdate: boolean | null = null;
 let memoryUpdateMode: UpdateMode | null = null;
 let memoryUpdateOwned: Counts | null = null;
+let memoryUpdateBannerDismissed: boolean | null = null;
 
 function readFromStorage(): Counts {
   if (typeof window === "undefined") return {};
@@ -147,6 +149,22 @@ function writeUpdateOwnedToStorage(owned: Counts) {
   } catch {}
 }
 
+function readUpdateBannerDismissedFromStorage(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(UPDATE_BANNER_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeUpdateBannerDismissedToStorage(v: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(UPDATE_BANNER_KEY, v ? "1" : "0");
+  } catch {}
+}
+
 function emit() {
   for (const l of listeners) l();
 }
@@ -205,6 +223,16 @@ function getServerSnapshotUpdateOwned(): Counts {
   return EMPTY_COUNTS;
 }
 
+function getSnapshotUpdateBannerDismissed(): boolean {
+  if (memoryUpdateBannerDismissed === null)
+    memoryUpdateBannerDismissed = readUpdateBannerDismissedFromStorage();
+  return memoryUpdateBannerDismissed;
+}
+
+function getServerSnapshotUpdateBannerDismissed(): boolean {
+  return false;
+}
+
 function setCount(code: string, value: number) {
   const current = getSnapshotCounts();
   const next: Counts = { ...current };
@@ -224,6 +252,12 @@ function setName(name: string) {
 function setHasUpdate(v: boolean) {
   memoryHasUpdate = v;
   writeHasUpdateToStorage(v);
+  emit();
+}
+
+function setUpdateBannerDismissed(v: boolean) {
+  memoryUpdateBannerDismissed = v;
+  writeUpdateBannerDismissedToStorage(v);
   emit();
 }
 
@@ -335,6 +369,11 @@ export function useCollection() {
     getSnapshotUpdateOwned,
     getServerSnapshotUpdateOwned,
   );
+  const updateBannerDismissed = useSyncExternalStore(
+    subscribe,
+    getSnapshotUpdateBannerDismissed,
+    getServerSnapshotUpdateBannerDismissed,
+  );
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -356,6 +395,10 @@ export function useCollection() {
       }
       if (e.key === UPDATE_OWNED_KEY) {
         memoryUpdateOwned = readUpdateOwnedFromStorage();
+        emit();
+      }
+      if (e.key === UPDATE_BANNER_KEY) {
+        memoryUpdateBannerDismissed = readUpdateBannerDismissedFromStorage();
         emit();
       }
     };
@@ -416,6 +459,10 @@ export function useCollection() {
     setHasUpdate(false);
   }, []);
 
+  const dismissUpdateBanner = useCallback(() => {
+    setUpdateBannerDismissed(true);
+  }, []);
+
   const setUpdateMode = useCallback((mode: UpdateMode) => {
     setUpdateModeInternal(mode);
   }, []);
@@ -451,8 +498,10 @@ export function useCollection() {
     hasUpdateSet,
     updateMode,
     updateOwned,
+    updateBannerDismissed,
     enableUpdateSet,
     disableUpdateSet,
+    dismissUpdateBanner,
     setUpdateMode,
     toggleUpdateOwned,
     setUpdateOwned,
