@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { GROUPS, SECTIONS, Section } from "@/lib/album";
-import { summarize, useCollection } from "@/lib/collection";
+import { summarize, summarizeUpdate, useCollection } from "@/lib/collection";
 import { TeamCard } from "@/components/team-card";
 import { TeamSheet } from "@/components/team-sheet";
 import { AlbumCompleteCelebration } from "@/components/album-complete-celebration";
@@ -12,6 +12,8 @@ import {
   ArrowDownAZ,
   ArrowLeftRight,
   BookOpen,
+  ChevronRight,
+  RefreshCw,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -29,9 +31,12 @@ function normalize(s: string) {
 }
 
 export default function HomePage() {
-  const { counts, ownerName } = useCollection();
-  const totals = summarize(counts);
+  const { counts, ownerName, hasUpdateSet, updateMode, updateOwned } =
+    useCollection();
+  const substitute = hasUpdateSet && updateMode === "substitute";
+  const totals = summarize(counts, { updateOwned, substitute });
   const complete = totals.missing === 0;
+  const updateTotals = summarizeUpdate(updateOwned);
 
   const [group, setGroup] = useState<GroupFilter>("all");
   const [query, setQuery] = useState("");
@@ -107,6 +112,28 @@ export default function HomePage() {
           percent={totals.percent}
           complete={complete}
         />
+
+        {hasUpdateSet ? (
+          <Link
+            href="/update-set"
+            prefetch
+            className="flex items-center gap-3 rounded-2xl border border-update/30 bg-update/5 px-4 py-3 transition-colors hover:bg-update/10"
+          >
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-update/15 text-update">
+              <RefreshCw className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold leading-tight">
+                Update set
+              </span>
+              <span className="block text-[11px] text-muted-foreground">
+                {updateTotals.owned}/{updateTotals.total} anotados ·{" "}
+                {updateMode === "substitute" ? "sustituyen" : "añadido"}
+              </span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
+        ) : null}
 
         <div className="flex flex-wrap gap-1.5">
           <GroupChip
@@ -187,6 +214,9 @@ export default function HomePage() {
                   section={s}
                   counts={counts}
                   onClick={() => openTeam(s)}
+                  updateOwned={updateOwned}
+                  substitute={substitute}
+                  showUpdates={hasUpdateSet}
                 />
               </div>
             ))}
