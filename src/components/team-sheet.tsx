@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Section, STICKERS, Sticker, formatStickerCode } from "@/lib/album";
 import { isSlotOwned, useCollection } from "@/lib/collection";
-import { getUpdateEntry, UpdateEntry } from "@/lib/update-set";
+import { getUpdateEntry } from "@/lib/update-set";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { ArrowRight, Eraser, Plus, RefreshCw } from "lucide-react";
+import { Eraser, Minus, Plus, RefreshCw } from "lucide-react";
 
 type Filter = "all" | "missing" | "owned" | "dupes";
 
@@ -33,34 +33,46 @@ export function TeamSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
+
   return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      disablePointerDismissal
-    >
-      <SheetContent
-        side="bottom"
-        className="rounded-t-3xl p-0 max-h-[92dvh] flex flex-col gap-0"
-      >
-        {section ? <TeamSheetBody key={section.id} section={section} /> : null}
-      </SheetContent>
-    </Sheet>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange} disablePointerDismissal>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl p-0 max-h-[92dvh] flex flex-col gap-0"
+        >
+          {section ? (
+            <TeamSheetBody
+              key={section.id}
+              section={section}
+              onOpenDetail={setDetailCode}
+            />
+          ) : null}
+        </SheetContent>
+      </Sheet>
+
+      <UpdateDetailDialog
+        code={detailCode}
+        onOpenChange={(o) => {
+          if (!o) setDetailCode(null);
+        }}
+      />
+    </>
   );
 }
 
-function TeamSheetBody({ section }: { section: Section }) {
-  const {
-    counts,
-    setExact,
-    hasUpdateSet,
-    updateMode,
-    updateOwned,
-    setUpdateOwned,
-  } = useCollection();
+function TeamSheetBody({
+  section,
+  onOpenDetail,
+}: {
+  section: Section;
+  onOpenDetail: (code: string) => void;
+}) {
+  const { counts, setExact, hasUpdateSet, updateMode, updateOwned } =
+    useCollection();
   const [erase, setErase] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
-  const [detailCode, setDetailCode] = useState<string | null>(null);
 
   const substitute = hasUpdateSet && updateMode === "substitute";
   const slotOpts = { updateOwned, substitute };
@@ -90,8 +102,6 @@ function TeamSheetBody({ section }: { section: Section }) {
     if (filter === "dupes" && c <= 1) return false;
     return true;
   });
-
-  const detailEntry = detailCode ? getUpdateEntry(detailCode) : undefined;
 
   const onTileTap = (code: string) => {
     const c = counts[code] ?? 0;
@@ -170,24 +180,12 @@ function TeamSheetBody({ section }: { section: Section }) {
                 hasUpdate={hasUpd}
                 updateHave={(updateOwned[s.code] ?? 0) >= 1}
                 substitute={substitute}
-                onMarkerTap={() => setDetailCode(s.code)}
+                onMarkerTap={() => onOpenDetail(s.code)}
               />
             );
           })}
         </div>
       </div>
-
-      <UpdateDetailDialog
-        entry={detailEntry ?? null}
-        open={Boolean(detailEntry)}
-        onOpenChange={(o) => {
-          if (!o) setDetailCode(null);
-        }}
-        have={detailCode ? (updateOwned[detailCode] ?? 0) >= 1 : false}
-        onHaveChange={(v) => detailCode && setUpdateOwned(detailCode, v)}
-        originalCount={detailCode ? (counts[detailCode] ?? 0) : 0}
-        substitute={substitute}
-      />
 
       <div
         className={cn(
@@ -387,7 +385,10 @@ function StickerTile({
         />
         <span
           className={cn(
-            "relative z-10 text-[11px] font-bold tabular-nums leading-tight",
+            "z-10 font-bold tabular-nums leading-tight",
+            hasUpdate
+              ? "absolute inset-x-0 top-1 text-center text-[10px]"
+              : "relative text-[11px]",
             !owned && "text-muted-foreground",
           )}
         >
@@ -405,13 +406,13 @@ function StickerTile({
           onClick={onMarkerTap}
           aria-label="Ver jugador actualizado"
           className={cn(
-            "absolute -top-1 -left-1 z-20 inline-flex h-4 w-4 items-center justify-center rounded-full border shadow-sm transition-colors",
+            "absolute left-1/2 top-1/2 z-20 inline-flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm transition-transform active:scale-90",
             updateHave
               ? "border-update bg-update text-white"
-              : "border-update/50 bg-background text-update",
+              : "border-update/60 bg-background text-update",
           )}
         >
-          <RefreshCw className="h-2.5 w-2.5" strokeWidth={2.6} />
+          <RefreshCw className="h-4 w-4" strokeWidth={2.6} />
         </button>
       ) : null}
     </div>
@@ -419,94 +420,143 @@ function StickerTile({
 }
 
 function UpdateDetailDialog({
-  entry,
-  open,
+  code,
   onOpenChange,
-  have,
-  onHaveChange,
-  originalCount,
-  substitute,
 }: {
-  entry: UpdateEntry | null;
-  open: boolean;
+  code: string | null;
   onOpenChange: (open: boolean) => void;
-  have: boolean;
-  onHaveChange: (v: boolean) => void;
-  originalCount: number;
-  substitute: boolean;
 }) {
+  const {
+    counts,
+    updateMode,
+    hasUpdateSet,
+    updateOwned,
+    increment,
+    decrement,
+    setUpdateOwned,
+  } = useCollection();
+
+  const entry = code ? getUpdateEntry(code) : undefined;
+  const open = Boolean(code && entry);
+  const substitute = hasUpdateSet && updateMode === "substitute";
+  const originalCount = code ? (counts[code] ?? 0) : 0;
+  const dupes = Math.max(0, originalCount - 1);
+  const have = code ? (updateOwned[code] ?? 0) >= 1 : false;
+
   const originalStatus =
     originalCount === 0
       ? "No lo tienes"
-      : originalCount === 1
+      : dupes === 0
         ? "Pegado"
-        : `Pegado · ${originalCount - 1} repe${originalCount - 1 > 1 ? "s" : ""}`;
+        : `Pegado · ${dupes} repe${dupes > 1 ? "s" : ""}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm gap-3">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-md bg-update/10 px-1.5 py-0.5 text-xs font-semibold text-update">
-              <RefreshCw className="h-3 w-3" /> {entry?.code}
-            </span>
-            Update set
-          </DialogTitle>
-          <DialogDescription>
-            Este cromo cambió respecto al álbum original.
-          </DialogDescription>
-        </DialogHeader>
+      {entry ? (
+        <DialogContent
+          className="max-w-sm gap-3"
+          overlayClassName="bg-black/45 supports-backdrop-filter:backdrop-blur-sm"
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-update/10 px-1.5 py-0.5 text-xs font-semibold text-update">
+                <RefreshCw className="h-3 w-3" /> {entry.code}
+              </span>
+              Update set
+            </DialogTitle>
+            <DialogDescription>
+              Este cromo cambió respecto al álbum original.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="rounded-lg border bg-muted/40 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Original
+          {/* Original */}
+          <div className="rounded-lg border bg-muted/40 p-3">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Original
+            </div>
+            <div className="mt-0.5 flex items-center justify-between gap-3">
+              <div className="min-w-0 truncate text-sm font-medium line-through decoration-muted-foreground/50">
+                {entry.originalName}
               </div>
-              <div className="truncate text-sm font-medium line-through decoration-muted-foreground/50">
-                {entry?.originalName}
+              <div className="flex shrink-0 items-center gap-2">
+                <Stepper
+                  onDec={() => code && decrement(code)}
+                  onInc={() => code && increment(code)}
+                  count={originalCount}
+                  decDisabled={originalCount === 0}
+                />
               </div>
             </div>
-            <span className="shrink-0 text-[11px] text-muted-foreground">
+            <div className="mt-1 text-[11px] text-muted-foreground">
               {originalStatus}
-            </span>
-          </div>
-
-          <div className="my-2 flex items-center gap-2 text-muted-foreground">
-            <ArrowRight className="h-3.5 w-3.5" />
-            <span className="text-[11px]">se actualiza a</span>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[10px] font-medium uppercase tracking-wide text-update">
-                Actualizado · {entry?.position}
-              </div>
-              <div className="truncate text-sm font-semibold">
-                {entry?.replacementName}
-              </div>
             </div>
-            <label className="flex shrink-0 items-center gap-2">
-              <span className="text-xs font-medium">Lo tengo</span>
-              <Switch
-                checked={have}
-                onCheckedChange={(v) => onHaveChange(Boolean(v))}
-              />
-            </label>
           </div>
-        </div>
 
-        {substitute ? (
+          {/* Actualizado */}
+          <div className="rounded-lg border border-update/40 bg-update/5 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-update">
+                  Actualizado · {entry.position}
+                </div>
+                <div className="truncate text-sm font-semibold">
+                  {entry.replacementName}
+                </div>
+              </div>
+              <label className="flex shrink-0 items-center gap-2">
+                <span className="text-xs font-medium">Lo tengo</span>
+                <Switch
+                  checked={have}
+                  onCheckedChange={(v) => code && setUpdateOwned(code, Boolean(v))}
+                />
+              </label>
+            </div>
+          </div>
+
           <p className="text-[11px] text-muted-foreground">
-            Modo sustituir: con el original o el actualizado, el cromo cuenta
-            como conseguido.
+            {substitute
+              ? "Modo sustituir: con el original o el actualizado, el cromo cuenta como conseguido."
+              : "Modo añadido: el actualizado cuenta aparte, no altera el total del álbum."}
           </p>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">
-            Modo añadido: cuenta aparte, no altera el total del álbum.
-          </p>
-        )}
-      </DialogContent>
+        </DialogContent>
+      ) : null}
     </Dialog>
+  );
+}
+
+function Stepper({
+  onDec,
+  onInc,
+  count,
+  decDisabled,
+}: {
+  onDec: () => void;
+  onInc: () => void;
+  count: number;
+  decDisabled: boolean;
+}) {
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onDec}
+        disabled={decDisabled}
+        aria-label="Quitar uno"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
+      >
+        <Minus className="h-3.5 w-3.5" />
+      </button>
+      <span className="w-4 text-center text-sm font-bold tabular-nums">
+        {count}
+      </span>
+      <button
+        type="button"
+        onClick={onInc}
+        aria-label="Añadir uno"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-success/50 bg-success-soft/50 text-success transition-colors hover:bg-success-soft"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
