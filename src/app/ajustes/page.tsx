@@ -345,16 +345,16 @@ function ActivateUpdateDialog({
             ¿Cómo cuentan?
           </div>
           <ChoiceRow
-            active={mode === "substitute"}
-            onClick={() => setMode("substitute")}
-            title="Sustituyen al original"
-            hint="El actualizado completa el mismo slot. Puedes terminar el álbum con los alternativos."
-          />
-          <ChoiceRow
             active={mode === "addition"}
             onClick={() => setMode("addition")}
             title="Son un añadido"
             hint="Colección aparte. El total de 980 no cambia."
+          />
+          <ChoiceRow
+            active={mode === "substitute"}
+            onClick={() => setMode("substitute")}
+            title="Sustituyen al original"
+            hint="El actualizado completa el mismo slot. Puedes terminar el álbum con los alternativos."
           />
         </div>
 
@@ -363,16 +363,16 @@ function ActivateUpdateDialog({
             ¿Cómo los anoto?
           </div>
           <ChoiceRow
-            active={fillAll}
-            onClick={() => setFillAll(true)}
-            title="Marcarlos todos de golpe"
-            hint={`Compraste el pack: los ${TOTAL_UPDATE} quedan anotados.`}
-          />
-          <ChoiceRow
             active={!fillAll}
             onClick={() => setFillAll(false)}
             title="Los iré añadiendo uno a uno"
             hint="Empiezas en 0 y marcas según los consigas."
+          />
+          <ChoiceRow
+            active={fillAll}
+            onClick={() => setFillAll(true)}
+            title="Marcarlos todos de golpe"
+            hint={`Compraste el pack: los ${TOTAL_UPDATE} quedan anotados.`}
           />
         </div>
 
