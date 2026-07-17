@@ -325,8 +325,8 @@ function ActivateUpdateDialog({
   onOpenChange: (open: boolean) => void;
   onConfirm: (mode: UpdateMode, fillAll: boolean) => void;
 }) {
-  const [mode, setMode] = useState<UpdateMode>("substitute");
-  const [fillAll, setFillAll] = useState(true);
+  const [mode, setMode] = useState<UpdateMode>("addition");
+  const [fillAll, setFillAll] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
