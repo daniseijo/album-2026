@@ -387,7 +387,7 @@ function StickerTile({
           className={cn(
             "z-10 font-bold tabular-nums leading-tight",
             hasUpdate
-              ? "absolute inset-x-0 top-1 text-center text-[10px]"
+              ? "absolute inset-x-0 top-[20%] text-center text-[10px]"
               : "relative text-[11px]",
             !owned && "text-muted-foreground",
           )}
@@ -406,7 +406,7 @@ function StickerTile({
           onClick={onMarkerTap}
           aria-label="Ver jugador actualizado"
           className={cn(
-            "absolute left-1/2 top-1/2 z-20 inline-flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm transition-transform active:scale-90",
+            "absolute left-1/2 top-[68%] z-20 inline-flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm transition-transform active:scale-90",
             updateHave
               ? "border-update bg-update text-white"
               : "border-update/60 bg-background text-update",
